@@ -1,0 +1,509 @@
+name: Sync upstream and release agents
+
+on:
+  schedule:
+    - cron: "10 * * * *"
+  workflow_dispatch:
+    inputs:
+      maafw_version:
+        description: "MaaFramework release tag used as the C++ Agent SDK; empty uses the pinned MAAFW_COMPAT_VERSION variable"
+        required: false
+        type: string
+        default: ""
+  repository_dispatch:
+    types:
+      - upstream-update
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/sync-and-release.yml"
+      - "agent/**"
+      - "tools/build_and_install.py"
+      - "tools/maadeps-download.py"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: maaend-upstream-sync-and-release
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_REPOSITORY: MaaEnd/MaaEnd
+  UPSTREAM_BRANCH: v2
+  MIRROR_BRANCH: mirror
+  MAIN_BRANCH: main
+  TARGET_OS: linux
+  TARGET_ARCH: aarch64
+
+jobs:
+  sync-build-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: false
+
+      - name: Update mirror and prepare main candidate
+        id: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git remote remove upstream 2>/dev/null || true
+          git remote add upstream "https://github.com/${UPSTREAM_REPOSITORY}.git"
+          git fetch --no-tags upstream \
+            "${UPSTREAM_BRANCH}:refs/remotes/upstream/${UPSTREAM_BRANCH}"
+          git fetch --no-tags origin \
+            "${MAIN_BRANCH}:refs/remotes/origin/${MAIN_BRANCH}"
+          git fetch --no-tags origin \
+            "${MIRROR_BRANCH}:refs/remotes/origin/${MIRROR_BRANCH}" || true
+
+          upstream_sha=$(git rev-parse "refs/remotes/upstream/${UPSTREAM_BRANCH}")
+          mirror_sha=$(git rev-parse "refs/remotes/origin/${MIRROR_BRANCH}" 2>/dev/null || true)
+
+          if [[ "$mirror_sha" != "$upstream_sha" ]]; then
+            git push --force-with-lease origin \
+              "refs/remotes/upstream/${UPSTREAM_BRANCH}:refs/heads/${MIRROR_BRANCH}"
+          fi
+
+          main_sha=$(git rev-parse "refs/remotes/origin/${MAIN_BRANCH}")
+          git switch --force-create sync-candidate "refs/remotes/origin/${MAIN_BRANCH}"
+          git merge --no-edit "refs/remotes/upstream/${UPSTREAM_BRANCH}"
+          candidate_sha=$(git rev-parse HEAD)
+
+          echo "upstream_sha=$upstream_sha" >> "$GITHUB_OUTPUT"
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+          echo "candidate_sha=$candidate_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Select MaaFramework compatibility version
+        id: maafw
+        shell: bash
+        env:
+          INPUT_VERSION: ${{inputs.maafw_version}}
+          CONFIGURED_VERSION: ${{vars.MAAFW_COMPAT_VERSION}}
+        run: |
+          set -euo pipefail
+
+          version=${INPUT_VERSION:-$CONFIGURED_VERSION}
+          if [[ -z "$version" ]]; then
+            echo "Set the repository variable MAAFW_COMPAT_VERSION (for example v4.x.y) or provide workflow_dispatch.maafw_version" >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Initialize submodules
+        shell: bash
+        run: git submodule update --init --recursive
+
+      - name: Calculate Agent build ID
+        id: build
+        shell: bash
+        env:
+          MAAFW_VERSION: ${{steps.maafw.outputs.version}}
+        run: |
+          set -euo pipefail
+
+          candidate_sha=$(git rev-parse HEAD)
+          go_tree=$(git rev-parse "${candidate_sha}:agent/go-service")
+          cpp_tree=$(git rev-parse "${candidate_sha}:agent/cpp-algo")
+          maadeps_blob=$(git rev-parse "${candidate_sha}:tools/maadeps-download.py")
+          build_script_blob=$(git rev-parse "${candidate_sha}:tools/build_and_install.py")
+          workflow_blob=$(git rev-parse "${candidate_sha}:.github/workflows/sync-and-release.yml")
+
+          build_id=$(
+            printf '%s\n' \
+              "target=${TARGET_OS}-${TARGET_ARCH}" \
+              "maafw=$MAAFW_VERSION" \
+              "go_tree=$go_tree" \
+              "cpp_tree=$cpp_tree" \
+              "maadeps_blob=$maadeps_blob" \
+              "build_script_blob=$build_script_blob" \
+              "workflow_blob=$workflow_blob" |
+              sha256sum |
+              cut -c1-24
+          )
+
+          release_tag="agents-${TARGET_OS}-${TARGET_ARCH}-${build_id}"
+          bundle="maaend-agents-${TARGET_OS}-${TARGET_ARCH}-${build_id}.tar.gz"
+          checksum="${bundle}.sha256"
+          manifest="maaend-agents-${TARGET_OS}-${TARGET_ARCH}-${build_id}.manifest.json"
+
+          echo "build_id=$build_id" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "bundle=$bundle" >> "$GITHUB_OUTPUT"
+          echo "checksum=$checksum" >> "$GITHUB_OUTPUT"
+          echo "manifest=$manifest" >> "$GITHUB_OUTPUT"
+          echo "go_tree=$go_tree" >> "$GITHUB_OUTPUT"
+          echo "cpp_tree=$cpp_tree" >> "$GITHUB_OUTPUT"
+          echo "maadeps_blob=$maadeps_blob" >> "$GITHUB_OUTPUT"
+          echo "build_script_blob=$build_script_blob" >> "$GITHUB_OUTPUT"
+          echo "workflow_blob=$workflow_blob" >> "$GITHUB_OUTPUT"
+
+      - name: Check existing Agent release
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          RELEASE_TAG: ${{steps.build.outputs.release_tag}}
+          BUNDLE: ${{steps.build.outputs.bundle}}
+          CHECKSUM: ${{steps.build.outputs.checksum}}
+          MANIFEST: ${{steps.build.outputs.manifest}}
+        run: |
+          set -euo pipefail
+
+          release_info=$(gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,assets 2>/dev/null || true)
+
+          ready=false
+          if [[ -n "$release_info" ]] && jq -e \
+            --arg bundle "$BUNDLE" \
+            --arg checksum "$CHECKSUM" \
+            --arg manifest "$MANIFEST" \
+            '(.isDraft == false)
+              and ([.assets[].name] | index($bundle) != null)
+              and ([.assets[].name] | index($checksum) != null)
+              and ([.assets[].name] | index($manifest) != null)' \
+            <<< "$release_info" >/dev/null; then
+            ready=true
+          fi
+
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+
+      - name: Record Agent release lock in source
+        shell: bash
+        env:
+          BUILD_ID: ${{steps.build.outputs.build_id}}
+          RELEASE_TAG: ${{steps.build.outputs.release_tag}}
+          BUNDLE: ${{steps.build.outputs.bundle}}
+          CHECKSUM: ${{steps.build.outputs.checksum}}
+          MANIFEST: ${{steps.build.outputs.manifest}}
+          GO_TREE: ${{steps.build.outputs.go_tree}}
+          CPP_TREE: ${{steps.build.outputs.cpp_tree}}
+          MAADEPS_BLOB: ${{steps.build.outputs.maadeps_blob}}
+          BUILD_SCRIPT_BLOB: ${{steps.build.outputs.build_script_blob}}
+          WORKFLOW_BLOB: ${{steps.build.outputs.workflow_blob}}
+          MAAFW_VERSION: ${{steps.maafw.outputs.version}}
+        run: |
+          set -euo pipefail
+
+          mkdir -p .mwu
+          jq -n \
+            --arg build_id "$BUILD_ID" \
+            --arg release_tag "$RELEASE_TAG" \
+            --arg bundle "$BUNDLE" \
+            --arg checksum "$CHECKSUM" \
+            --arg manifest "$MANIFEST" \
+            --arg maafw_compat_version "$MAAFW_VERSION" \
+            --arg go_tree "$GO_TREE" \
+            --arg cpp_tree "$CPP_TREE" \
+            --arg maadeps_blob "$MAADEPS_BLOB" \
+            --arg build_script_blob "$BUILD_SCRIPT_BLOB" \
+            --arg workflow_blob "$WORKFLOW_BLOB" \
+            '{
+              schemaVersion: 1,
+              platforms: {
+                "linux-aarch64": {
+                  buildId: $build_id,
+                  releaseTag: $release_tag,
+                  bundle: $bundle,
+                  checksum: $checksum,
+                  manifest: $manifest,
+                  maafwCompatVersion: $maafw_compat_version,
+                  source: {
+                    goTree: $go_tree,
+                    cppTree: $cpp_tree,
+                    maadepsBlob: $maadeps_blob,
+                    buildScriptBlob: $build_script_blob,
+                    workflowBlob: $workflow_blob
+                  }
+                }
+              }
+            }' > .mwu/agent-release.json.new
+          mv .mwu/agent-release.json.new .mwu/agent-release.json
+
+      - name: Install Linux build tools
+        if: steps.release.outputs.ready != 'true'
+        shell: bash
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ninja-build cmake
+
+      - name: Setup Go
+        if: steps.release.outputs.ready != 'true'
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: agent/go-service/go.mod
+          cache-dependency-path: |
+            agent/go-service/go.mod
+            agent/go-service/go.sum
+
+      - name: Cache MaaDeps
+        if: steps.release.outputs.ready != 'true'
+        id: cache-maadeps
+        uses: actions/cache@v5
+        with:
+          path: agent/cpp-algo/MaaUtils/MaaDeps
+          key: maadeps-linux-aarch64-${{hashFiles('tools/maadeps-download.py')}}
+
+      - name: Bootstrap MaaDeps
+        if: steps.release.outputs.ready != 'true' && steps.cache-maadeps.outputs.cache-hit != 'true'
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        run: python3 tools/maadeps-download.py arm64-linux
+
+      - name: Prepare MaaFramework SDK directory
+        if: steps.release.outputs.ready != 'true'
+        shell: bash
+        run: rm -rf deps install
+
+      - name: Download MaaFramework SDK
+        if: steps.release.outputs.ready != 'true'
+        uses: robinraju/release-downloader@v1
+        with:
+          repository: MaaXYZ/MaaFramework
+          fileName: MAA-linux-aarch64*
+          tag: ${{steps.maafw.outputs.version}}
+          out-file-path: deps
+          extract: true
+          token: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Build Linux aarch64 Agents
+        if: steps.release.outputs.ready != 'true'
+        shell: bash
+        env:
+          RELEASE_TAG: ${{steps.build.outputs.release_tag}}
+          PYTHONIOENCODING: utf-8
+        run: |
+          python tools/build_and_install.py \
+            --cpp-algo \
+            --ci \
+            --os linux \
+            --arch aarch64 \
+            --version "$RELEASE_TAG"
+
+      - name: Package Agents
+        if: steps.release.outputs.ready != 'true'
+        shell: bash
+        env:
+          BUILD_ID: ${{steps.build.outputs.build_id}}
+          RELEASE_TAG: ${{steps.build.outputs.release_tag}}
+          BUNDLE: ${{steps.build.outputs.bundle}}
+          CHECKSUM: ${{steps.build.outputs.checksum}}
+          MANIFEST: ${{steps.build.outputs.manifest}}
+          GO_TREE: ${{steps.build.outputs.go_tree}}
+          CPP_TREE: ${{steps.build.outputs.cpp_tree}}
+          MAADEPS_BLOB: ${{steps.build.outputs.maadeps_blob}}
+          BUILD_SCRIPT_BLOB: ${{steps.build.outputs.build_script_blob}}
+          WORKFLOW_BLOB: ${{steps.build.outputs.workflow_blob}}
+          MAAFW_VERSION: ${{steps.maafw.outputs.version}}
+          CANDIDATE_SHA: ${{steps.candidate.outputs.candidate_sha}}
+          UPSTREAM_SHA: ${{steps.candidate.outputs.upstream_sha}}
+        run: |
+          set -euo pipefail
+
+          package_dir=package/agent
+          mkdir -p "$package_dir" dist
+          install -m 755 install/agent/go-service "$package_dir/go-service"
+          install -m 755 install/agent/cpp-algo "$package_dir/cpp-algo"
+
+          go_sha=$(sha256sum "$package_dir/go-service" | cut -d ' ' -f1)
+          cpp_sha=$(sha256sum "$package_dir/cpp-algo" | cut -d ' ' -f1)
+          go_size=$(stat -c '%s' "$package_dir/go-service")
+          cpp_size=$(stat -c '%s' "$package_dir/cpp-algo")
+
+          jq -n \
+            --arg build_id "$BUILD_ID" \
+            --arg release_tag "$RELEASE_TAG" \
+            --arg platform "${TARGET_OS}-${TARGET_ARCH}" \
+            --arg candidate_commit "$CANDIDATE_SHA" \
+            --arg upstream_commit "$UPSTREAM_SHA" \
+            --arg go_tree "$GO_TREE" \
+            --arg cpp_tree "$CPP_TREE" \
+            --arg maadeps_blob "$MAADEPS_BLOB" \
+            --arg build_script_blob "$BUILD_SCRIPT_BLOB" \
+            --arg workflow_blob "$WORKFLOW_BLOB" \
+            --arg maafw_compat_version "$MAAFW_VERSION" \
+            --arg go_sha256 "$go_sha" \
+            --arg cpp_sha256 "$cpp_sha" \
+            --argjson go_size "$go_size" \
+            --argjson cpp_size "$cpp_size" \
+            '{
+              schema_version: 1,
+              build_id: $build_id,
+              release_tag: $release_tag,
+              platform: $platform,
+              candidate_commit: $candidate_commit,
+              upstream_commit: $upstream_commit,
+              source: {
+                go_tree: $go_tree,
+                cpp_tree: $cpp_tree,
+                maadeps_blob: $maadeps_blob,
+                build_script_blob: $build_script_blob,
+                workflow_blob: $workflow_blob
+              },
+              maafw_compat_version: $maafw_compat_version,
+              files: {
+                "go-service": {
+                  sha256: $go_sha256,
+                  size: $go_size
+                },
+                "cpp-algo": {
+                  sha256: $cpp_sha256,
+                  size: $cpp_size
+                }
+              }
+            }' > "$package_dir/manifest.json"
+
+          tar -C "$package_dir" -czf "dist/$BUNDLE" \
+            go-service cpp-algo manifest.json
+          cp "$package_dir/manifest.json" "dist/$MANIFEST"
+          (cd dist && sha256sum "$BUNDLE" > "$CHECKSUM")
+
+      - name: Publish Agent release
+        if: steps.release.outputs.ready != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          RELEASE_TAG: ${{steps.build.outputs.release_tag}}
+          BUNDLE: ${{steps.build.outputs.bundle}}
+          CHECKSUM: ${{steps.build.outputs.checksum}}
+          MANIFEST: ${{steps.build.outputs.manifest}}
+          BUILD_ID: ${{steps.build.outputs.build_id}}
+          CANDIDATE_SHA: ${{steps.candidate.outputs.candidate_sha}}
+          UPSTREAM_SHA: ${{steps.candidate.outputs.upstream_sha}}
+          MAAFW_VERSION: ${{steps.maafw.outputs.version}}
+        run: |
+          set -euo pipefail
+
+          if ! git ls-remote --exit-code --tags origin \
+            "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            git tag -a "$RELEASE_TAG" "$CANDIDATE_SHA" \
+              -m "MaaEnd Agents $BUILD_ID"
+            git push origin "refs/tags/$RELEASE_TAG"
+          fi
+
+          release_info=$(gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json isDraft 2>/dev/null || true)
+
+          if [[ -z "$release_info" ]]; then
+            notes=$(printf '%s\n\n%s\n%s\n%s\n' \
+              "Automated MaaEnd Agent build." \
+              "- Upstream commit: $UPSTREAM_SHA" \
+              "- Build ID: $BUILD_ID" \
+              "- MaaFramework compatibility version: $MAAFW_VERSION")
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --draft \
+              --prerelease \
+              --latest=false \
+              --title "MaaEnd Agents $BUILD_ID" \
+              --notes "$notes"
+          fi
+
+          gh release upload "$RELEASE_TAG" \
+            "dist/$BUNDLE" \
+            "dist/$CHECKSUM" \
+            "dist/$MANIFEST" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+          is_draft=$(gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json isDraft \
+            --jq .isDraft)
+          if [[ "$is_draft" == "true" ]]; then
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --draft=false
+          fi
+
+      - name: Verify Agent release
+        shell: bash
+        env:
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          RELEASE_TAG: ${{steps.build.outputs.release_tag}}
+          BUNDLE: ${{steps.build.outputs.bundle}}
+          CHECKSUM: ${{steps.build.outputs.checksum}}
+          MANIFEST: ${{steps.build.outputs.manifest}}
+        run: |
+          set -euo pipefail
+
+          gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,assets |
+            jq -e \
+              --arg bundle "$BUNDLE" \
+              --arg checksum "$CHECKSUM" \
+              --arg manifest "$MANIFEST" \
+              '(.isDraft == false)
+                and ([.assets[].name] | index($bundle) != null)
+                and ([.assets[].name] | index($checksum) != null)
+                and ([.assets[].name] | index($manifest) != null)'
+
+      - name: Verify published Agent payload
+        shell: bash
+        env:
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          RELEASE_TAG: ${{steps.build.outputs.release_tag}}
+          BUNDLE: ${{steps.build.outputs.bundle}}
+          CHECKSUM: ${{steps.build.outputs.checksum}}
+          MANIFEST: ${{steps.build.outputs.manifest}}
+          BUILD_ID: ${{steps.build.outputs.build_id}}
+          MAAFW_VERSION: ${{steps.maafw.outputs.version}}
+        run: |
+          set -euo pipefail
+
+          verify_dir=$(mktemp -d)
+          trap 'rm -rf "$verify_dir"' EXIT
+          gh release download "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir "$verify_dir" \
+            --pattern "$BUNDLE" \
+            --pattern "$CHECKSUM" \
+            --pattern "$MANIFEST"
+
+          (cd "$verify_dir" && sha256sum --check "$CHECKSUM")
+          tar -xOf "$verify_dir/$BUNDLE" manifest.json \
+            > "$verify_dir/bundled-manifest.json"
+          cmp "$verify_dir/$MANIFEST" "$verify_dir/bundled-manifest.json"
+          jq -e \
+            --arg build_id "$BUILD_ID" \
+            --arg maafw "$MAAFW_VERSION" \
+            '(.schema_version == 1)
+              and (.build_id == $build_id)
+              and (.maafw_compat_version == $maafw)
+              and (.files["go-service"].sha256 | type == "string")
+              and (.files["cpp-algo"].sha256 | type == "string")' \
+            "$verify_dir/$MANIFEST"
+
+      - name: Commit verified Agent release lock
+        id: final
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git add .mwu/agent-release.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update Agent release lock [skip ci]"
+          fi
+          echo "candidate_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Advance main
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{steps.final.outputs.candidate_sha}}
+        run: |
+          set -euo pipefail
+          git push origin "$CANDIDATE_SHA:refs/heads/$MAIN_BRANCH"

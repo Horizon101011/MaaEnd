@@ -381,11 +381,13 @@ export default function buildDeliveryJobsTask() {
                 controller: [
                     "ADB",
                     "CloudADB",
+                    "Linux-Gamescope",
+                    "Linux-ScreenCast",
+                    "Linux-Wlroots",
                     "MacOS-Background",
                     "MacOS-Front",
                     "PlayCover",
-                    "Win32-Front",
-                    "Wlroots",
+                    "Win32-Front"
                 ],
                 group: [
                     "regional_development",

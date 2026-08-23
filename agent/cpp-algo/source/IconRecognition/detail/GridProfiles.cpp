@@ -11,9 +11,9 @@
 #include <tuple>
 #include <vector>
 
+#include "ForegroundTexture.h"
 #include "GridFeatures.h"
 #include "GridGeometry.h"
-#include "ForegroundTexture.h"
 
 namespace iconrecognition::detail
 {
@@ -506,9 +506,8 @@ std::optional<TransferHypothesis> select_grid_hypothesis(const cv::Mat& crop, bo
     });
     if (require_texture) {
         std::erase_if(hypotheses, [has_reliable_texture_evidence](const TransferHypothesis& hypothesis) {
-            return has_reliable_texture_evidence
-                       ? hypothesis.foreground_texture_coverage < kMinimumSparseTransferTextureCoverage
-                       : hypothesis.foreground_texture_coverage <= 0.0;
+            return has_reliable_texture_evidence ? hypothesis.foreground_texture_coverage < kMinimumSparseTransferTextureCoverage
+                                                 : hypothesis.foreground_texture_coverage <= 0.0;
         });
     }
     if (hypotheses.empty()) {
@@ -757,14 +756,12 @@ std::vector<TransferGridHint> DiscoverTransferGridHints(const cv::Mat& crop, boo
         return combined;
     }
     const auto regions = discover_transfer_regions(crop);
-    auto broad =
-        phase_hypotheses(crop, kTransferDiscoveryPitchRange, kTransferDiscoveryMinimumColumns, kTransferDiscoveryMinimumRows);
+    auto broad = phase_hypotheses(crop, kTransferDiscoveryPitchRange, kTransferDiscoveryMinimumColumns, kTransferDiscoveryMinimumRows);
     for (auto& hypothesis : broad) {
         hypothesis.foreground_texture_coverage = ForegroundTextureCoverage(crop, hypothesis);
     }
-    const bool broad_has_texture_evidence = std::ranges::any_of(broad, [](const TransferHypothesis& hypothesis) {
-        return hypothesis.foreground_texture_coverage > 0.0;
-    });
+    const bool broad_has_texture_evidence =
+        std::ranges::any_of(broad, [](const TransferHypothesis& hypothesis) { return hypothesis.foreground_texture_coverage > 0.0; });
     std::vector<TransferGridHint> hints;
     for (const auto& raw_region : regions) {
         const cv::Rect region(raw_region.x, 0, raw_region.width, crop.rows);

@@ -1533,11 +1533,9 @@ GridLayout BuildTransferLayout(const cv::Mat& image, const cv::Rect& roi, const 
     std::vector<int> local_x = x_fit->starts;
     std::vector<int> local_y;
     const auto rarity_fit = FitRarityGrid(image(roi), local_x, hint.y_starts, profile);
-    const bool reliable_rarity_fit =
-        rarity_fit.has_value()
-        && (!transfer
-            || rarity_fit->supporting_strong_cells >= kMinimumReliableRarityCells
-            || rarity_fit->supporting_chromatic_cells >= kMinimumReliableRarityCells);
+    const bool reliable_rarity_fit = rarity_fit.has_value()
+                                     && (!transfer || rarity_fit->supporting_strong_cells >= kMinimumReliableRarityCells
+                                         || rarity_fit->supporting_chromatic_cells >= kMinimumReliableRarityCells);
     if (reliable_rarity_fit) {
         local_x = rarity_fit->x_starts;
         const int count = std::min(profile.maximum_rows, std::max(static_cast<int>(hint.y_starts.size()), rarity_fit->supporting_rows));

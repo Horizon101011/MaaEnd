@@ -660,7 +660,8 @@ void TestTransferGridDetectsSparseVisiblePhase()
         }
     }
 
-    const auto grid = iconrecognition::detail::DetectGrid(image, iconrecognition::GridType::Transfer, cv::Rect(0, 0, image.cols, image.rows), 1.0);
+    const auto grid =
+        iconrecognition::detail::DetectGrid(image, iconrecognition::GridType::Transfer, cv::Rect(0, 0, image.cols, image.rows), 1.0);
     const auto target_cell = std::ranges::find_if(grid.cells, [&](const auto& cell) {
         return std::abs(cell.cell_box.x - target_box.x) <= 1 && std::abs(cell.cell_box.y - target_box.y) <= 2;
     });
@@ -669,12 +670,12 @@ void TestTransferGridDetectsSparseVisiblePhase()
         const auto& layout = grid.grids.front();
         const auto& diagnostics = *layout.selection_diagnostics;
         grid_summary += "; origin=" + std::to_string(static_cast<int>(diagnostics.origin.x)) + ","
-                        + std::to_string(static_cast<int>(diagnostics.origin.y)) + "; pitch="
-                        + std::to_string(static_cast<int>(diagnostics.pitch.x)) + ","
+                        + std::to_string(static_cast<int>(diagnostics.origin.y))
+                        + "; pitch=" + std::to_string(static_cast<int>(diagnostics.pitch.x)) + ","
                         + std::to_string(static_cast<int>(diagnostics.pitch.y));
         if (!layout.cells.empty()) {
-            grid_summary += "; first=" + std::to_string(layout.cells.front().cell_box.x) + ","
-                            + std::to_string(layout.cells.front().cell_box.y);
+            grid_summary +=
+                "; first=" + std::to_string(layout.cells.front().cell_box.x) + "," + std::to_string(layout.cells.front().cell_box.y);
         }
     }
     Check(target_cell != grid.cells.end(), grid_summary);

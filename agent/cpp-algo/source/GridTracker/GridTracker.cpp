@@ -54,10 +54,7 @@ bool is_better(const Alignment& candidate, const Alignment& best)
     return candidate.compared_cells > best.compared_cells;
 }
 
-Alignment align(
-    const recogrid::GridFrame& previous,
-    const recogrid::GridFrame& current,
-    const Options& options)
+Alignment align(const recogrid::GridFrame& previous, const recogrid::GridFrame& current, const Options& options)
 {
     Alignment best;
     const int compared_cols = std::min(previous.cols, current.cols);
@@ -98,8 +95,8 @@ Alignment align(
         }
     }
 
-    best.reliable = best.support_rows >= std::max(1, options.min_overlap_rows)
-                    && best.match_ratio >= std::clamp(options.min_match_ratio, 0.0, 1.0);
+    best.reliable =
+        best.support_rows >= std::max(1, options.min_overlap_rows) && best.match_ratio >= std::clamp(options.min_match_ratio, 0.0, 1.0);
     return best;
 }
 
@@ -124,10 +121,7 @@ int count_rows(const std::map<std::pair<int, int>, Cell>& cells)
     return rows;
 }
 
-bool covers_entire_frame(
-    const recogrid::GridFrame& previous,
-    const recogrid::GridFrame& current,
-    const Alignment& alignment)
+bool covers_entire_frame(const recogrid::GridFrame& previous, const recogrid::GridFrame& current, const Alignment& alignment)
 {
     if (previous.rows != current.rows || previous.cols != current.cols) {
         return false;

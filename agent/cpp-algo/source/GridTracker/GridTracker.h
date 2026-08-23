@@ -76,6 +76,7 @@ public:
     void reset();
 
     [[nodiscard]] int rowHeight() const { return row_height_; }
+
     [[nodiscard]] int colWidth() const { return col_width_; }
 
 private:

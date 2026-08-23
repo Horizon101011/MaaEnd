@@ -1,12 +1,11 @@
 {
-    "count": 22,
-    "ocr_key": "name",
     "text": {
-        "name": "收货人 / 回收站名，取自 DomainDepotBuyerTable.buyerName。五语各值全唯一，是 OCR 主键",
-        "mission": "委托目标文案，已剥掉 <@qu.key>…</> 富文本标签。回收站之间共用同一句，不能单独当键",
-        "area": "所在仓储节点名；该层级还没配仓储节点时回落成地区名"
+        "name": "取自 DomainDepotBuyerTable.buyerName；普通收货任务用作 OCR 目标，回收站任务仅保留为数据标识",
+        "mission": "委托目标文案，已剥掉 <@qu.key>…</> 富文本标签；回收站任务用作 OCR 目标，同区域重复时保持歧义失败",
+        "area": "任务详情页显示的关卡名，取自 LevelDescTable.showName",
+        "depot_id": "该终点所属仓储节点 ID；没有同层仓储节点时为空字符串",
+        "depots": "仓储节点坐标，按 DomainDepotTable.id 精确关联 LevelMapMark.markInstId"
     },
-    "coord": "u/v = MapLocator 底图像素，原点左上、y 向下；BaseNav 顶点也是这个平面（u, v, height），直接喂寻路即可。maps 里的 zone / sx / tx / sy / ty 原样取自 BaseNav pack 的 zone 表，世界坐标转进来是 u = sx*x + tx, v = -sy*z + ty",
     "maps": {
         "map01": {
             "zone": "map01base",
@@ -33,6 +32,77 @@
             "ty": 1344.0
         }
     },
+    "coord": "u/v = MapLocator 底图像素，原点左上、y 向下；BaseNav 顶点也是这个平面（u, v, height），直接喂寻路即可。maps 里的 zone / sx / tx / sy / ty 原样取自 BaseNav pack 的 zone 表，世界坐标转进来是 u = sx*x + tx, v = -sy*z + ty",
+    "ocr_key": "name",
+    "depot_count": 5,
+    "count": 22,
+    "depots": [
+        {
+            "id": "domain_1_lv005_depot_1",
+            "name": {
+                "zh_cn": "源石研究园",
+                "zh_tw": "源石研究園",
+                "en_us": "Originium Science Park",
+                "ja_jp": "源石研究パーク",
+                "ko_kr": "오리지늄 연구 구역"
+            },
+            "map": "map01",
+            "u": 1043.463,
+            "v": 804.72
+        },
+        {
+            "id": "domain_1_lv006_depot_1",
+            "name": {
+                "zh_cn": "矿脉源区",
+                "zh_tw": "礦脈源區",
+                "en_us": "Origin Lodespring",
+                "ja_jp": "鉱山エリア",
+                "ko_kr": "광맥 구역"
+            },
+            "map": "map01",
+            "u": 912.255,
+            "v": 263.96
+        },
+        {
+            "id": "domain_1_lv007_depot_1",
+            "name": {
+                "zh_cn": "供能高地",
+                "zh_tw": "供能高地",
+                "en_us": "Power Plateau",
+                "ja_jp": "エネルギー高地",
+                "ko_kr": "에너지 공급 고지"
+            },
+            "map": "map01",
+            "u": 635.995,
+            "v": 230.292
+        },
+        {
+            "id": "domain_2_lv002_depot_1",
+            "name": {
+                "zh_cn": "武陵城区",
+                "zh_tw": "武陵城區",
+                "en_us": "Wuling City",
+                "ja_jp": "武陵城内",
+                "ko_kr": "무릉성 구역"
+            },
+            "map": "map02",
+            "u": 950.498,
+            "v": 1832.767
+        },
+        {
+            "id": "domain_2_lv005_depot_1",
+            "name": {
+                "zh_cn": "试验园区",
+                "zh_tw": "實驗園區",
+                "en_us": "Test Area",
+                "ja_jp": "実験区域",
+                "ko_kr": "실험 구역"
+            },
+            "map": "map02",
+            "u": 1252.425,
+            "v": 1752.923
+        }
+    ],
     "destinations": [
         {
             "id": "deliver_target_map01_lv005_01",
@@ -58,6 +128,7 @@
                 "ja_jp": "源石研究パーク",
                 "ko_kr": "오리지늄 연구 구역"
             },
+            "depot_id": "domain_1_lv005_depot_1",
             "map": "map01",
             "u": 1132.831,
             "v": 900.497
@@ -86,6 +157,7 @@
                 "ja_jp": "源石研究パーク",
                 "ko_kr": "오리지늄 연구 구역"
             },
+            "depot_id": "domain_1_lv005_depot_1",
             "map": "map01",
             "u": 1161.842,
             "v": 826.062
@@ -114,6 +186,7 @@
                 "ja_jp": "源石研究パーク",
                 "ko_kr": "오리지늄 연구 구역"
             },
+            "depot_id": "domain_1_lv005_depot_1",
             "map": "map01",
             "u": 968.209,
             "v": 824.369
@@ -142,6 +215,7 @@
                 "ja_jp": "源石研究パーク",
                 "ko_kr": "오리지늄 연구 구역"
             },
+            "depot_id": "domain_1_lv005_depot_1",
             "map": "map01",
             "u": 905.299,
             "v": 764.145
@@ -170,6 +244,7 @@
                 "ja_jp": "源石研究パーク",
                 "ko_kr": "오리지늄 연구 구역"
             },
+            "depot_id": "domain_1_lv005_depot_1",
             "map": "map01",
             "u": 1183.458,
             "v": 817.116
@@ -198,6 +273,7 @@
                 "ja_jp": "鉱山エリア",
                 "ko_kr": "광맥 구역"
             },
+            "depot_id": "domain_1_lv006_depot_1",
             "map": "map01",
             "u": 1132.593,
             "v": 471.222
@@ -226,6 +302,7 @@
                 "ja_jp": "鉱山エリア",
                 "ko_kr": "광맥 구역"
             },
+            "depot_id": "domain_1_lv006_depot_1",
             "map": "map01",
             "u": 1192.373,
             "v": 433.958
@@ -254,6 +331,7 @@
                 "ja_jp": "鉱山エリア",
                 "ko_kr": "광맥 구역"
             },
+            "depot_id": "domain_1_lv006_depot_1",
             "map": "map01",
             "u": 1172.391,
             "v": 443.451
@@ -282,6 +360,7 @@
                 "ja_jp": "鉱山エリア",
                 "ko_kr": "광맥 구역"
             },
+            "depot_id": "domain_1_lv006_depot_1",
             "map": "map01",
             "u": 1048.016,
             "v": 429.484
@@ -310,6 +389,7 @@
                 "ja_jp": "鉱山エリア",
                 "ko_kr": "광맥 구역"
             },
+            "depot_id": "domain_1_lv006_depot_1",
             "map": "map01",
             "u": 1078.905,
             "v": 504.33
@@ -338,6 +418,7 @@
                 "ja_jp": "エネルギー高地",
                 "ko_kr": "에너지 공급 고지"
             },
+            "depot_id": "domain_1_lv007_depot_1",
             "map": "map01",
             "u": 616.693,
             "v": 130.125
@@ -366,6 +447,7 @@
                 "ja_jp": "エネルギー高地",
                 "ko_kr": "에너지 공급 고지"
             },
+            "depot_id": "domain_1_lv007_depot_1",
             "map": "map01",
             "u": 527.836,
             "v": 241.566
@@ -394,6 +476,7 @@
                 "ja_jp": "エネルギー高地",
                 "ko_kr": "에너지 공급 고지"
             },
+            "depot_id": "domain_1_lv007_depot_1",
             "map": "map01",
             "u": 681.185,
             "v": 390.687
@@ -422,6 +505,7 @@
                 "ja_jp": "エネルギー高地",
                 "ko_kr": "에너지 공급 고지"
             },
+            "depot_id": "domain_1_lv007_depot_1",
             "map": "map01",
             "u": 502.664,
             "v": 251.902
@@ -450,6 +534,7 @@
                 "ja_jp": "エネルギー高地",
                 "ko_kr": "에너지 공급 고지"
             },
+            "depot_id": "domain_1_lv007_depot_1",
             "map": "map01",
             "u": 615.071,
             "v": 397.166
@@ -472,12 +557,13 @@
                 "ko_kr": "화물을 최대한 온전한 상태로 소백이에게 전달하기"
             },
             "area": {
-                "zh_cn": "武陵城区",
-                "zh_tw": "武陵城區",
+                "zh_cn": "武陵城",
+                "zh_tw": "武陵城",
                 "en_us": "Wuling City",
-                "ja_jp": "武陵城内",
-                "ko_kr": "무릉성 구역"
+                "ja_jp": "武陵城",
+                "ko_kr": "무릉성"
             },
+            "depot_id": "domain_2_lv002_depot_1",
             "map": "map02",
             "u": 538.031,
             "v": 1250.27
@@ -500,12 +586,13 @@
                 "ko_kr": "화물을 최대한 온전한 상태로 프리모 린데에게 전달하기"
             },
             "area": {
-                "zh_cn": "武陵城区",
-                "zh_tw": "武陵城區",
+                "zh_cn": "武陵城",
+                "zh_tw": "武陵城",
                 "en_us": "Wuling City",
-                "ja_jp": "武陵城内",
-                "ko_kr": "무릉성 구역"
+                "ja_jp": "武陵城",
+                "ko_kr": "무릉성"
             },
+            "depot_id": "domain_2_lv002_depot_1",
             "map": "map02",
             "u": 461.92,
             "v": 1712.802
@@ -528,12 +615,13 @@
                 "ko_kr": "화물을 최대한 온전한 상태로 우시에게 전달하기"
             },
             "area": {
-                "zh_cn": "武陵城区",
-                "zh_tw": "武陵城區",
+                "zh_cn": "武陵城",
+                "zh_tw": "武陵城",
                 "en_us": "Wuling City",
-                "ja_jp": "武陵城内",
-                "ko_kr": "무릉성 구역"
+                "ja_jp": "武陵城",
+                "ko_kr": "무릉성"
             },
+            "depot_id": "domain_2_lv002_depot_1",
             "map": "map02",
             "u": 894.615,
             "v": 1408.425
@@ -556,12 +644,13 @@
                 "ko_kr": "화물을 최대한 온전한 상태로 재활용센터에 운송하기"
             },
             "area": {
-                "zh_cn": "武陵城区",
-                "zh_tw": "武陵城區",
+                "zh_cn": "武陵城",
+                "zh_tw": "武陵城",
                 "en_us": "Wuling City",
-                "ja_jp": "武陵城内",
-                "ko_kr": "무릉성 구역"
+                "ja_jp": "武陵城",
+                "ko_kr": "무릉성"
             },
+            "depot_id": "domain_2_lv002_depot_1",
             "map": "map02",
             "u": 513.135,
             "v": 1650.773
@@ -590,6 +679,7 @@
                 "ja_jp": "実験区域",
                 "ko_kr": "실험 구역"
             },
+            "depot_id": "domain_2_lv005_depot_1",
             "map": "map02",
             "u": 1383.764,
             "v": 1633.923
@@ -618,6 +708,7 @@
                 "ja_jp": "実験区域",
                 "ko_kr": "실험 구역"
             },
+            "depot_id": "domain_2_lv005_depot_1",
             "map": "map02",
             "u": 1083.307,
             "v": 1455.27
@@ -646,6 +737,7 @@
                 "ja_jp": "実験区域",
                 "ko_kr": "실험 구역"
             },
+            "depot_id": "domain_2_lv005_depot_1",
             "map": "map02",
             "u": 1369.873,
             "v": 1533.922

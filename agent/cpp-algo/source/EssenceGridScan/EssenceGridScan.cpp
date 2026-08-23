@@ -727,8 +727,8 @@ MaaBool EssenceGrid::advance(
                 state.scan_required_ = true;
                 state.pending_cell_.reset();
                 write_advance_detail(out_detail, state, result, std::nullopt, config);
-                LogWarn << "EssenceGridScan scan miss" << VAR(result.message) << VAR(result.reason)
-                        << VAR(result.alignment.row_offset) << VAR(result.alignment.support_rows) << VAR(result.alignment.match_ratio);
+                LogWarn << "EssenceGridScan scan miss" << VAR(result.message) << VAR(result.reason) << VAR(result.alignment.row_offset)
+                        << VAR(result.alignment.support_rows) << VAR(result.alignment.match_ratio);
                 return 0;
             }
 
@@ -759,8 +759,8 @@ MaaBool EssenceGrid::advance(
 
         LogInfo << "EssenceGridScan advance" << VAR(next_node) << VAR(result.tracked_cells) << VAR(state.issued_cells_)
                 << VAR(state.current_page_queue_.size()) << VAR(state.current_page_queue_index_) << VAR(state.scan_required_)
-                << gridtracker::ToString(result.status) << VAR(result.alignment.row_offset)
-                << VAR(result.alignment.support_rows) << VAR(result.alignment.match_ratio);
+                << gridtracker::ToString(result.status) << VAR(result.alignment.row_offset) << VAR(result.alignment.support_rows)
+                << VAR(result.alignment.match_ratio);
         if (!override_next(context, node_name, next_node)) {
             LogWarn << "EssenceGridScan override next failed" << VAR(next_node);
         }

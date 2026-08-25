@@ -882,8 +882,7 @@ bool NavigationStateMachine::TryReplanRemainingAuthoredRoute(const char* reason)
     // 的所有捷径。弃索次数太多说明这一带的标定或定位整体不可靠, 才整段退回纯走路。
     if (runtime_state_.zipline_abandon_count >= kZiplineAbandonWalkFallbackCount) {
         replan_param.zipline_enabled = false;
-        LogWarn << "Authored route replan disables ziplines: too many abandons this run."
-                << VAR(runtime_state_.zipline_abandon_count);
+        LogWarn << "Authored route replan disables ziplines: too many abandons this run." << VAR(runtime_state_.zipline_abandon_count);
     }
     else {
         replan_param.banned_zipline_hops = runtime_state_.zipline_hop_bans;

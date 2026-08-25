@@ -55,7 +55,7 @@ std::filesystem::file_time_type FileStamp(const std::filesystem::path& path)
 {
     std::error_code ec;
     const auto stamp = std::filesystem::last_write_time(path, ec);
-    return ec ? std::filesystem::file_time_type { } : stamp;
+    return ec ? std::filesystem::file_time_type {} : stamp;
 }
 
 // 标定与滑索记录都是只读的，但导入动作会在同一次运行里改写它们，所以按 mtime 决定重不重读：
@@ -65,8 +65,8 @@ std::shared_ptr<const ZiplineData> SharedData()
 {
     static std::mutex mutex;
     static std::shared_ptr<const ZiplineData> cached;
-    static std::filesystem::file_time_type frames_stamp { };
-    static std::filesystem::file_time_type store_stamp { };
+    static std::filesystem::file_time_type frames_stamp {};
+    static std::filesystem::file_time_type store_stamp {};
 
     const std::filesystem::path frames_path = zipline::ZiplineFrames::DefaultPath();
     const std::filesystem::path store_path = zipline::ZiplineStore::DefaultPath();
@@ -122,13 +122,12 @@ constexpr double grid_half_span(int size)
 //
 // 两项相加得到标记点允许的轴差。这里选择“任一可能朝向能重合就保留”，是为了避免把实际
 // 通电的滑索提前挡在规划图外；在森空岛提供朝向前，代价是边界上可能保留少量未通电架子。
-constexpr bool
-    grid_areas_may_overlap(
-        double delta_x,
-        double delta_z,
-        const std::array<int, 2>& coverage_size,
-        const std::array<int, 2>& supply_footprint,
-        const std::array<int, 2>& tower_footprint)
+constexpr bool grid_areas_may_overlap(
+    double delta_x,
+    double delta_z,
+    const std::array<int, 2>& coverage_size,
+    const std::array<int, 2>& supply_footprint,
+    const std::array<int, 2>& tower_footprint)
 {
     const double center_reach_x = grid_half_span(coverage_size[0]) + grid_half_span(tower_footprint[0]);
     const double center_reach_z = grid_half_span(coverage_size[1]) + grid_half_span(tower_footprint[1]);
@@ -150,12 +149,7 @@ bool IsPowered(const zipline::ZiplineMark& tower, const std::array<int, 2>& towe
 {
     return std::any_of(supplies.begin(), supplies.end(), [&](const SupplyPoint& supply) {
         if (supply.coverage_size[0] > 0 && supply.coverage_size[1] > 0) {
-            return grid_areas_may_overlap(
-                supply.x - tower.x,
-                supply.z - tower.z,
-                supply.coverage_size,
-                supply.footprint,
-                tower_footprint);
+            return grid_areas_may_overlap(supply.x - tower.x, supply.z - tower.z, supply.coverage_size, supply.footprint, tower_footprint);
         }
         return std::hypot(supply.x - tower.x, supply.z - tower.z) <= supply.radius;
     });
@@ -406,14 +400,13 @@ std::optional<ZiplineRoute> PlanZiplineRoute(
         for (const auto& mark : record.marks) {
             const zipline::ZiplinePowerSource* source = data->frames.powerSource(mark.template_id);
             if (source != nullptr) {
-                supplies.push_back(
-                    SupplyPoint {
-                        .x = mark.x,
-                        .z = mark.z,
-                        .radius = source->radius,
-                        .footprint = source->footprint,
-                        .coverage_size = source->coverage_size,
-                    });
+                supplies.push_back(SupplyPoint {
+                    .x = mark.x,
+                    .z = mark.z,
+                    .radius = source->radius,
+                    .footprint = source->footprint,
+                    .coverage_size = source->coverage_size,
+                });
                 supply_points.push_back(ToWorld(frame->project(mark)));
             }
         }

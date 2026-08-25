@@ -501,8 +501,8 @@ bool SettleAtStrictGoal(const Context& ctx, const Waypoint& waypoint)
         if (correction == kStrictSettleMaxCorrections || stalled_steps >= kStrictSettleStalledSteps
             || elapsed_ms >= kStrictSettleBudgetMs) {
             StopMotionAndCommitment(ctx);
-            LogWarn << "Strict arrival settle gave up, accepting on band." << VAR(residual) << VAR(correction)
-                    << VAR(stalled_steps) << VAR(elapsed_ms) << VAR(fix.x) << VAR(fix.y);
+            LogWarn << "Strict arrival settle gave up, accepting on band." << VAR(residual) << VAR(correction) << VAR(stalled_steps)
+                    << VAR(elapsed_ms) << VAR(fix.x) << VAR(fix.y);
             return false;
         }
 
@@ -511,12 +511,12 @@ bool SettleAtStrictGoal(const Context& ctx, const Waypoint& waypoint)
         // Sized by what is left, floored at the stationary latch: a shorter step cannot be told apart from not having
         // moved, so it would also destroy the only test for a step that is being blocked.
         const double step_wu = std::max(residual, kStrictSettleMinStepWu);
-        const int step_hold_ms = wu_per_ms > 0.0
-            ? std::clamp(static_cast<int>(std::lround(step_wu / wu_per_ms)), kStrictSettleMinStepMs, kStrictSettleMaxStepMs)
-            : kStrictSettleStepMs;
+        const int step_hold_ms =
+            wu_per_ms > 0.0 ? std::clamp(static_cast<int>(std::lround(step_wu / wu_per_ms)), kStrictSettleMinStepMs, kStrictSettleMaxStepMs)
+                            : kStrictSettleStepMs;
 
-        LogInfo << "Strict arrival correcting." << VAR(residual) << VAR(bearing) << VAR(from_heading) << VAR(step_wu)
-                << VAR(step_hold_ms) << VAR(correction);
+        LogInfo << "Strict arrival correcting." << VAR(residual) << VAR(bearing) << VAR(from_heading) << VAR(step_wu) << VAR(step_hold_ms)
+                << VAR(correction);
         const auto step_started = std::chrono::steady_clock::now();
         if (!TurnToHeadingOnce(ctx, NaviMath::CalcDeltaRotation(from_heading, bearing))) {
             StopMotionAndCommitment(ctx);

@@ -141,7 +141,7 @@ std::string InferBaseNavZone(const std::string& locator_zone, const std::string&
             return std::string(alias.zone_id);
         }
     }
-    return { };
+    return {};
 }
 
 std::optional<std::filesystem::path> FindExistingFromParents(const std::filesystem::path& relative_path)
@@ -396,8 +396,8 @@ navmesh::BaseNavRouteRequest BuildRouteRequest(
     const std::string& navmesh_zone,
     const navmesh::WorldPoint& start,
     const navmesh::WorldPoint& goal,
-    const std::vector<uint32_t>& blocked_triangles = { },
-    const std::vector<navmesh::WorldPoint>& blocked_points = { },
+    const std::vector<uint32_t>& blocked_triangles = {},
+    const std::vector<navmesh::WorldPoint>& blocked_points = {},
     float goal_floor_y = navmesh::kBaseNavFloorYNone,
     std::optional<double> goal_deck_y = std::nullopt,
     std::optional<double> start_floor_y = std::nullopt)
@@ -479,7 +479,7 @@ std::optional<Waypoint> ProjectRegularWaypointToBase(const navmesh::BaseNavPack&
 navmesh::BaseNavRouteResult PlanCorridorRoute(
     const CachedNavmesh& navmesh,
     const navmesh::BaseNavRouteRequest& request,
-    const std::function<bool()>& should_stop = { })
+    const std::function<bool()>& should_stop = {})
 {
     navmesh::BaseNavRouteResult result;
     const navmesh::BaseNavZone* zone = navmesh.pack.findZoneByName(request.zone_name);
@@ -528,7 +528,7 @@ std::optional<navmesh::BaseNavRouteResult> PlanNavmeshRouteImpl(
     const navmesh::WorldPoint& start,
     const navmesh::WorldPoint& goal,
     const std::vector<uint32_t>& blocked_triangles,
-    const std::vector<navmesh::WorldPoint>& blocked_points = { },
+    const std::vector<navmesh::WorldPoint>& blocked_points = {},
     std::optional<double> goal_deck_y = std::nullopt,
     std::optional<double> start_floor_y = std::nullopt)
 {
@@ -649,7 +649,7 @@ bool AppendBlindTargetFallback(
             continue;
         }
         const navmesh::BaseNavRouteRequest request =
-            BuildRouteRequest(navmesh.pack, state.current_zone, state.navmesh_zone, start, entry->point, { }, { }, goal_floor_y);
+            BuildRouteRequest(navmesh.pack, state.current_zone, state.navmesh_zone, start, entry->point, {}, {}, goal_floor_y);
         const auto route = PlanCorridorRoute(navmesh, request, should_stop);
         if (!route.ok() || route.path.points.empty()) {
             continue;
@@ -805,8 +805,8 @@ bool AppendNavmeshWaypoint(
         state.navmesh_zone,
         state.route_start,
         target.point,
-        { },
-        { },
+        {},
+        {},
         target.floor_y,
         target.deck_y);
     const auto plan_started_at = std::chrono::steady_clock::now();
@@ -1142,7 +1142,7 @@ void NormalizeLivePositionToBase(const NaviParam& param, NaviPosition& pos)
 std::string InitialExpectedZone(const NaviParam& param)
 {
     if (param.path.empty()) {
-        return { };
+        return {};
     }
     const std::string expected_zone = param.path.front().zone_id.empty() ? param.map_name : param.path.front().zone_id;
     return IsBaseNavZoneName(expected_zone) ? std::string() : expected_zone;
@@ -1223,7 +1223,7 @@ std::optional<navmesh::BaseNavRouteResult> PlanNavmeshRoute(
     std::optional<double> goal_deck_y,
     std::optional<double> start_floor_y)
 {
-    return PlanNavmeshRouteImpl(param, locator_zone, start, goal, { }, { }, goal_deck_y, start_floor_y);
+    return PlanNavmeshRouteImpl(param, locator_zone, start, goal, {}, {}, goal_deck_y, start_floor_y);
 }
 
 float NavmeshFloorYForZone(const NaviParam& param, const std::string& locator_zone)
@@ -1351,7 +1351,7 @@ std::optional<navmesh::BaseNavRouteResult> PlanNavmeshDetourRoute(
 
     const navmesh::WorldPoint start { .x = position.x, .y = position.y };
     const navmesh::WorldPoint goal { .x = anchor.x, .y = anchor.y };
-    const auto direct_route = PlanNavmeshRouteImpl(param, position.zone_id, start, goal, { });
+    const auto direct_route = PlanNavmeshRouteImpl(param, position.zone_id, start, goal, {});
     if (!direct_route) {
         return std::nullopt;
     }
@@ -1419,7 +1419,7 @@ std::optional<navmesh::BaseNavRouteResult> PlanNavmeshDetourRoute(
     std::optional<navmesh::BaseNavRouteResult> best;
     double best_score = std::numeric_limits<double>::infinity();
     navmesh::WorldPoint best_detour;
-    navmesh::WorldPoint best_detour_vertex { };
+    navmesh::WorldPoint best_detour_vertex {};
     const navmesh::WorldPoint forward_probe = OffsetPoint(position, route_heading, kDetourBlockedForwardDistance);
     for (double radius : kDetourRadii) {
         for (double heading_offset : kDetourHeadingOffsets) {

@@ -1,6 +1,7 @@
 #include "zipline_leg_planner.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <memory>
@@ -54,7 +55,7 @@ std::filesystem::file_time_type FileStamp(const std::filesystem::path& path)
 {
     std::error_code ec;
     const auto stamp = std::filesystem::last_write_time(path, ec);
-    return ec ? std::filesystem::file_time_type {} : stamp;
+    return ec ? std::filesystem::file_time_type { } : stamp;
 }
 
 // 标定与滑索记录都是只读的，但导入动作会在同一次运行里改写它们，所以按 mtime 决定重不重读：
@@ -64,8 +65,8 @@ std::shared_ptr<const ZiplineData> SharedData()
 {
     static std::mutex mutex;
     static std::shared_ptr<const ZiplineData> cached;
-    static std::filesystem::file_time_type frames_stamp {};
-    static std::filesystem::file_time_type store_stamp {};
+    static std::filesystem::file_time_type frames_stamp { };
+    static std::filesystem::file_time_type store_stamp { };
 
     const std::filesystem::path frames_path = zipline::ZiplineFrames::DefaultPath();
     const std::filesystem::path store_path = zipline::ZiplineStore::DefaultPath();
@@ -92,18 +93,70 @@ double Distance(const navmesh::WorldPoint& a, const navmesh::WorldPoint& b)
     return std::hypot(b.x - a.x, b.y - a.y);
 }
 
-// 一个供电结构的供电范围。半径按 templateId 查一次就够，别放进逐根架子的内层循环。
+// 一个供电结构的供电范围。规则按 templateId 查一次就够，别放进逐根架子的内层循环。
 struct SupplyPoint
 {
     double x = 0.0;
     double z = 0.0;
     double radius = 0.0;
+    std::array<int, 2> footprint { 1, 1 };
+    std::array<int, 2> coverage_size { 0, 0 };
 };
 
-// 这根架子通不通电。只量水平距离：供电范围是个平面半径，架子与供电结构的高低差不进判据。
-bool IsPowered(const zipline::ZiplineMark& tower, const std::vector<SupplyPoint>& supplies)
+constexpr double absolute_value(double value)
+{
+    return value < 0.0 ? -value : value;
+}
+
+constexpr double grid_half_span(int size)
+{
+    return static_cast<double>((size - 1) / 2);
+}
+
+// 森空岛 saveMarks 的 pos 不是建筑中心，而是会随朝向落在不同角格上的锚点；响应又不带
+// 朝向。实测同一台 3x3 中继器原地旋转后，pos 会沿一轴跳 2 格，正好等于占地边长减一。
+// 因此单个标记无法唯一还原中心，只能把双方所有可能的中心位置都纳入判定：
+//
+//   真实中心允许的轴差 = 供电覆盖半宽 + 架子占地半宽
+//   标记到真实中心的不确定性 = 供电结构占地半宽 + 架子占地半宽
+//
+// 两项相加得到标记点允许的轴差。这里选择“任一可能朝向能重合就保留”，是为了避免把实际
+// 通电的滑索提前挡在规划图外；在森空岛提供朝向前，代价是边界上可能保留少量未通电架子。
+constexpr bool
+    grid_areas_may_overlap(
+        double delta_x,
+        double delta_z,
+        const std::array<int, 2>& coverage_size,
+        const std::array<int, 2>& supply_footprint,
+        const std::array<int, 2>& tower_footprint)
+{
+    const double center_reach_x = grid_half_span(coverage_size[0]) + grid_half_span(tower_footprint[0]);
+    const double center_reach_z = grid_half_span(coverage_size[1]) + grid_half_span(tower_footprint[1]);
+    const double anchor_uncertainty_x = grid_half_span(supply_footprint[0]) + grid_half_span(tower_footprint[0]);
+    const double anchor_uncertainty_z = grid_half_span(supply_footprint[1]) + grid_half_span(tower_footprint[1]);
+    const double reach_x = center_reach_x + anchor_uncertainty_x;
+    const double reach_z = center_reach_z + anchor_uncertainty_z;
+    return absolute_value(delta_x) <= reach_x && absolute_value(delta_z) <= reach_z;
+}
+
+// 7x7 中继器与 3x3 滑索的中心重合边界是 4；双方角格锚点各引入 1 格不确定性，
+// 所以标记点边界是 6。实测误判的 (5, 2) 必须保留，任一轴到 7 才能确定不重合。
+static_assert(grid_areas_may_overlap(5.0, 2.0, { 7, 7 }, { 3, 3 }, { 3, 3 }));
+static_assert(grid_areas_may_overlap(6.0, 6.0, { 7, 7 }, { 3, 3 }, { 3, 3 }));
+static_assert(!grid_areas_may_overlap(0.0, 7.0, { 7, 7 }, { 3, 3 }, { 3, 3 }));
+
+// 这根架子通不通电。只量原始世界坐标的水平 x/z；架子与供电结构的高低差不进判据。
+bool IsPowered(const zipline::ZiplineMark& tower, const std::array<int, 2>& tower_footprint, const std::vector<SupplyPoint>& supplies)
 {
     return std::any_of(supplies.begin(), supplies.end(), [&](const SupplyPoint& supply) {
+        if (supply.coverage_size[0] > 0 && supply.coverage_size[1] > 0) {
+            return grid_areas_may_overlap(
+                supply.x - tower.x,
+                supply.z - tower.z,
+                supply.coverage_size,
+                supply.footprint,
+                tower_footprint);
+        }
         return std::hypot(supply.x - tower.x, supply.z - tower.z) <= supply.radius;
     });
 }
@@ -351,9 +404,16 @@ std::optional<ZiplineRoute> PlanZiplineRoute(
         // 供电结构和滑索架在同一份记录里，先把这张图的电网收齐，再逐根架子判。
         std::vector<SupplyPoint> supplies;
         for (const auto& mark : record.marks) {
-            const double radius = data->frames.supplyRadius(mark.template_id);
-            if (radius > 0.0) {
-                supplies.push_back(SupplyPoint { .x = mark.x, .z = mark.z, .radius = radius });
+            const zipline::ZiplinePowerSource* source = data->frames.powerSource(mark.template_id);
+            if (source != nullptr) {
+                supplies.push_back(
+                    SupplyPoint {
+                        .x = mark.x,
+                        .z = mark.z,
+                        .radius = source->radius,
+                        .footprint = source->footprint,
+                        .coverage_size = source->coverage_size,
+                    });
                 supply_points.push_back(ToWorld(frame->project(mark)));
             }
         }
@@ -365,7 +425,7 @@ std::optional<ZiplineRoute> PlanZiplineRoute(
             if (!frame->accepts(mark)) {
                 continue;
             }
-            if (require_power && !IsPowered(mark, supplies)) {
+            if (require_power && !IsPowered(mark, data->frames.footprint(mark.template_id), supplies)) {
                 ++unpowered;
                 continue;
             }

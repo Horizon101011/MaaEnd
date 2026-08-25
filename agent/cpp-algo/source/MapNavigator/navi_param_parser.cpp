@@ -683,6 +683,7 @@ void append_expanded_waypoints(
         waypoint.zone_id = zone_id;
         waypoint.target_tier = target_tier;
         waypoint.strict_arrival = strict_arrival;
+        waypoint.authored_strict_arrival = strict_arrival;
         waypoint.route_required = route_required;
         out_waypoints.push_back(std::move(waypoint));
         return;
@@ -696,6 +697,7 @@ void append_expanded_waypoints(
         waypoint.zone_id = zone_id;
         waypoint.target_tier = target_tier;
         waypoint.strict_arrival = strict_arrival;
+        waypoint.authored_strict_arrival = strict_arrival;
         waypoint.route_required = route_required;
         out_waypoints.push_back(std::move(waypoint));
     }
@@ -819,6 +821,7 @@ bool append_parsed_waypoint(const NaviWaypointInput& input, std::vector<Waypoint
             return false;
         }
         Waypoint navmesh_waypoint(input.target_.at(0), input.target_.at(1), ActionType::NAVMESH);
+        // 规划出来的这一腿要按严判的判定圈和前视收尾, 跟作者写没写 strict_arrival 无关
         navmesh_waypoint.strict_arrival = true;
         navmesh_waypoint.zone_id = zone_id;
         // The tier whose coordinate frame `target` was authored in. Distinct from zone_id, which is the

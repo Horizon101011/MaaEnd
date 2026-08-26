@@ -54,10 +54,7 @@ void Check(bool condition, const std::string& message)
 
 cv::Scalar RarityBgr(int rarity);
 
-iconrecognition::detail::PreparedTemplate CandidateTemplate(
-    std::string item_id,
-    std::string storage_kind,
-    std::string category_type)
+iconrecognition::detail::PreparedTemplate CandidateTemplate(std::string item_id, std::string storage_kind, std::string category_type)
 {
     return iconrecognition::detail::PreparedTemplate {
         .record =
@@ -131,9 +128,7 @@ void TestCandidateSelectionTreatsDuplicateValuesAsOne()
             == std::vector<std::string> { "special" },
         "duplicate candidate values must behave as if each value was provided once");
 
-    iconrecognition::detail::ValidateCandidateFilterList(
-        { "Isolate:*", "Isolate:*" },
-        "item_recheck_filters");
+    iconrecognition::detail::ValidateCandidateFilterList({ "Isolate:*", "Isolate:*" }, "item_recheck_filters");
 }
 
 void TestCandidateSelectionRejectsInvalidRequests()
@@ -1279,8 +1274,8 @@ void TestDisabledTemplateScalesCenteredOverlaysFrom128PixelReference()
         std::tuple { 128, cv::Rect(4, 50, 60, 28), cv::Rect(52, 52, 24, 24) },
     };
     const auto WithinOnePixel = [](const cv::Rect actual, const cv::Rect expected) {
-        return std::abs(actual.x - expected.x) <= 1 && std::abs(actual.y - expected.y) <= 1
-            && std::abs(actual.width - expected.width) <= 1 && std::abs(actual.height - expected.height) <= 1;
+        return std::abs(actual.x - expected.x) <= 1 && std::abs(actual.y - expected.y) <= 1 && std::abs(actual.width - expected.width) <= 1
+               && std::abs(actual.height - expected.height) <= 1;
     };
 
     for (const auto& [target_size, expected_band, expected_mark] : cases) {
@@ -1293,9 +1288,7 @@ void TestDisabledTemplateScalesCenteredOverlaysFrom128PixelReference()
         base.mask.colRange(0, target_size / 2).setTo(cv::Scalar(255));
 
         const auto disabled = iconrecognition::detail::BuildRegionUnavailableTemplate(base, dark_band, white_mark, 230);
-        Check(
-            disabled.region_unavailable,
-            "region-unavailable template must retain its variant state");
+        Check(disabled.region_unavailable, "region-unavailable template must retain its variant state");
         Check(disabled.composite, "disabled template must preserve the base composite state");
         Check(disabled.record.item_id == "restricted", "disabled template must preserve item metadata");
         Check(disabled.image.size() == cv::Size(target_size, target_size), "disabled template must preserve target size");
@@ -1324,9 +1317,7 @@ void TestDisabledTemplateScalesCenteredOverlaysFrom128PixelReference()
         Check(
             disabled.mask.at<unsigned char>(expected_mark.y, expected_mark.x) == 0,
             "disabled white mark must be excluded from the template mask");
-        Check(
-            disabled.mask.at<unsigned char>(band_center) == 0,
-            "disabled dark band must be excluded from the template mask");
+        Check(disabled.mask.at<unsigned char>(band_center) == 0, "disabled dark band must be excluded from the template mask");
         Check(
             disabled.mask.at<unsigned char>(target_size / 2, target_size - 1) == 0,
             "dark band must not extend the disabled template mask");
@@ -1377,9 +1368,7 @@ void TestCatalogLoadsOnlyRegionRestrictedDisabledVariantsOnDemand()
 
     iconrecognition::detail::TemplateCatalog catalog(data_root, image_root);
     Check(catalog.initialize(), "disabled catalog fixture must initialize");
-    const auto restricted = std::ranges::find_if(
-        catalog.records(),
-        [](const auto& record) { return record.item_id == "restricted"; });
+    const auto restricted = std::ranges::find_if(catalog.records(), [](const auto& record) { return record.item_id == "restricted"; });
     Check(restricted != catalog.records().end() && restricted->region_restricted, "catalog must retain regionRestricted=true");
     Check(
         std::ranges::count_if(catalog.records(), [](const auto& record) { return record.region_restricted; }) == 1,
@@ -1414,8 +1403,7 @@ void TestCatalogLoadsOnlyRegionRestrictedDisabledVariantsOnDemand()
     const auto& disabled_templates = catalog.loadRegionUnavailable(64);
     Check(disabled_templates.size() == 1, "disabled catalog must contain only region-restricted items");
     Check(
-        disabled_templates.front().record.item_id == "restricted"
-            && disabled_templates.front().region_unavailable,
+        disabled_templates.front().record.item_id == "restricted" && disabled_templates.front().region_unavailable,
         "disabled catalog must preserve the original item id and mark the variant");
 }
 
@@ -1537,7 +1525,6 @@ void TestDecodeBgraRejectsNonStandardSourceSizes()
     check_rejected(write_icon("invalid-rectangle", 128, 256), "non-square source icon must be rejected");
     check_rejected(write_icon("invalid-power", 127, 127), "non-power-of-two source icon must be rejected");
 }
-
 
 void TestArbitrarySquareRoiUsesItsFinalSize()
 {

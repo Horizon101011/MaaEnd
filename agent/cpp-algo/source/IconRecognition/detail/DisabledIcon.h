@@ -7,10 +7,7 @@
 namespace iconrecognition::detail
 {
 
-PreparedTemplate BuildRegionUnavailableTemplate(
-    const PreparedTemplate& base,
-    const cv::Mat& dark_band,
-    const cv::Mat& white_mark,
-    int alpha_threshold);
+PreparedTemplate
+    BuildRegionUnavailableTemplate(const PreparedTemplate& base, const cv::Mat& dark_band, const cv::Mat& white_mark, int alpha_threshold);
 
 } // namespace iconrecognition::detail

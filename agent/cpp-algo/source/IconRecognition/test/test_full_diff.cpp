@@ -388,9 +388,8 @@ std::size_t PhysicalCoreCount()
     return std::max(1U, std::thread::hardware_concurrency());
 }
 
-std::vector<iconrecognition::RecognitionRequest> PreloadRequests(
-    const std::vector<iconrecognition::test::ManualRunnerCase>& cases,
-    bool recognize_region_unavailable)
+std::vector<iconrecognition::RecognitionRequest>
+    PreloadRequests(const std::vector<iconrecognition::test::ManualRunnerCase>& cases, bool recognize_region_unavailable)
 {
     std::vector<iconrecognition::RecognitionRequest> requests;
     requests.reserve(cases.size());
@@ -494,8 +493,7 @@ int main(int argc, char** argv)
                 throw std::runtime_error("unable to decode input image: " + test_case.image_path.string());
             }
             const auto recognition_started = RunnerClock::now();
-            const auto result =
-                RunCase(recognizer, image, test_case, options.debug, options.recognize_region_unavailable);
+            const auto result = RunCase(recognizer, image, test_case, options.debug, options.recognize_region_unavailable);
             case_performance.recognition_ms = ElapsedMilliseconds(recognition_started);
             const std::string image_name = test_case.image_path.lexically_relative(input_root).generic_string();
             const bool expected_checked =

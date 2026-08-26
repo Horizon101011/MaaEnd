@@ -42,14 +42,15 @@ CenteredOverlay ResizeCentered(const cv::Mat& source, int target_size, double of
         cv::merge(std::vector<cv::Mat> { source_channels[0], source_channels[1], source_channels[2] }, bgr);
         cv::Mat shifted_bgr = cv::Mat::zeros(target_size, target_size, CV_8UC3);
         cv::Mat shifted_alpha = cv::Mat::zeros(target_size, target_size, CV_8UC1);
-        const cv::Mat transform = (cv::Mat_<double>(2, 3) << 1.0, 0.0,
-                                   (target_size - size.width) / 2.0 + offset_x,
-                                   0.0,
-                                   1.0,
-                                   (target_size - size.height) / 2.0 + offset_y);
+        const cv::Mat transform =
+            (cv::Mat_<double>(2, 3) << 1.0,
+             0.0,
+             (target_size - size.width) / 2.0 + offset_x,
+             0.0,
+             1.0,
+             (target_size - size.height) / 2.0 + offset_y);
         cv::warpAffine(bgr, shifted_bgr, transform, shifted_bgr.size(), cv::INTER_LINEAR, cv::BORDER_CONSTANT);
-        cv::warpAffine(
-            source_channels[3], shifted_alpha, transform, shifted_alpha.size(), cv::INTER_LINEAR, cv::BORDER_CONSTANT);
+        cv::warpAffine(source_channels[3], shifted_alpha, transform, shifted_alpha.size(), cv::INTER_LINEAR, cv::BORDER_CONSTANT);
         return { std::move(shifted_bgr), std::move(shifted_alpha), cv::Rect(0, 0, target_size, target_size) };
     }
     std::vector<cv::Mat> channels;
@@ -79,10 +80,8 @@ void BlendOverlay(cv::Mat& destination, const CenteredOverlay& overlay, const cv
             const cv::Vec3b source_pixel = overlay.bgr.at<cv::Vec3b>(y, x);
             cv::Vec3b& target_pixel = target.at<cv::Vec3b>(y, x);
             for (int channel = 0; channel < 3; ++channel) {
-                target_pixel[channel] = static_cast<unsigned char>(std::clamp(
-                    source_pixel[channel] * alpha + target_pixel[channel] * (1.0F - alpha),
-                    0.0F,
-                    255.0F));
+                target_pixel[channel] = static_cast<unsigned char>(
+                    std::clamp(source_pixel[channel] * alpha + target_pixel[channel] * (1.0F - alpha), 0.0F, 255.0F));
             }
         }
     }
@@ -108,11 +107,8 @@ void ApplyRegionUnavailableBandRowsMask(cv::Mat& mask, const CenteredOverlay& da
 
 } // namespace
 
-PreparedTemplate BuildRegionUnavailableTemplate(
-    const PreparedTemplate& base,
-    const cv::Mat& dark_band,
-    const cv::Mat& white_mark,
-    int alpha_threshold)
+PreparedTemplate
+    BuildRegionUnavailableTemplate(const PreparedTemplate& base, const cv::Mat& dark_band, const cv::Mat& white_mark, int alpha_threshold)
 {
     if (base.image.empty() || base.image.type() != CV_8UC3 || base.image.rows != base.image.cols) {
         throw std::invalid_argument("disabled base template must be a non-empty square BGR image");
@@ -129,13 +125,11 @@ PreparedTemplate BuildRegionUnavailableTemplate(
     result.mask = base.mask.clone();
     result.region_unavailable = true;
 
-    const CenteredOverlay resized_band =
-        ResizeCentered(dark_band, base.image.cols, kDisabledOverlayOffsetX, kDisabledOverlayOffsetY);
+    const CenteredOverlay resized_band = ResizeCentered(dark_band, base.image.cols, kDisabledOverlayOffsetX, kDisabledOverlayOffsetY);
     BlendOverlay(result.image, resized_band, &base.mask);
     ApplyRegionUnavailableBandRowsMask(result.mask, resized_band, alpha_threshold);
 
-    const CenteredOverlay resized_mark =
-        ResizeCentered(white_mark, base.image.cols, kDisabledOverlayOffsetX, kDisabledOverlayOffsetY);
+    const CenteredOverlay resized_mark = ResizeCentered(white_mark, base.image.cols, kDisabledOverlayOffsetX, kDisabledOverlayOffsetY);
     BlendOverlay(result.image, resized_mark, nullptr);
     return result;
 }

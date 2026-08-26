@@ -213,11 +213,8 @@ const std::vector<PreparedTemplate>& TemplateCatalog::loadRegionUnavailable(int 
     std::vector<PreparedTemplate> result;
     for (const auto& base : base_templates) {
         if (base.record.region_restricted) {
-            result.push_back(BuildRegionUnavailableTemplate(
-                base,
-                region_unavailable_background_,
-                region_unavailable_mark_,
-                kTemplateAlphaThreshold));
+            result.push_back(
+                BuildRegionUnavailableTemplate(base, region_unavailable_background_, region_unavailable_mark_, kTemplateAlphaThreshold));
         }
     }
     return region_unavailable_cache_.emplace(target_size, std::move(result)).first->second;

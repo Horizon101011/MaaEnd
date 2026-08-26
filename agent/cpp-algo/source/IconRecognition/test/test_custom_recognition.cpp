@@ -218,8 +218,8 @@ RegionRestrictedFixture MakeRegionRestrictedFixture(std::string_view fixture_nam
     std::ofstream(data_root / "recognition_items.json", std::ios::binary | std::ios::trunc)
         << R"({"restricted":{"name":"受限物品","category":"test","storageKind":"Normal","categoryType":"Ore","rarity":1,"iconId":"restricted","fluidIconId":"","regionRestricted":true}})";
 
-    const cv::Mat source = iconrecognition::detail::DecodeBgra(
-        get_exe_dir() / ".." / "resource" / "image" / "IconRecognition" / "1" / "item_copper_ore.png");
+    const cv::Mat source =
+        iconrecognition::detail::DecodeBgra(get_exe_dir() / ".." / "resource" / "image" / "IconRecognition" / "1" / "item_copper_ore.png");
     Require(cv::imwrite((image_root / "1" / "restricted.png").string(), source), "unable to write restricted icon fixture");
     const cv::Mat dark_band(28, 120, CV_8UC4, cv::Scalar(0, 0, 0, 255));
     const cv::Mat white_mark(24, 24, CV_8UC4, cv::Scalar(255, 255, 255, 255));
@@ -234,13 +234,9 @@ RegionRestrictedFixture MakeRegionRestrictedFixture(std::string_view fixture_nam
     }
 
     const iconrecognition::detail::TemplateRecord record { .item_id = "restricted", .region_restricted = true };
-    const auto normal = iconrecognition::detail::PrepareStandardTemplate(
-        record,
-        source,
-        kTransferSyntheticCellSize,
-        kSyntheticAlphaThreshold);
-    const auto disabled =
-        iconrecognition::detail::BuildRegionUnavailableTemplate(normal, dark_band, white_mark, kSyntheticAlphaThreshold);
+    const auto normal =
+        iconrecognition::detail::PrepareStandardTemplate(record, source, kTransferSyntheticCellSize, kSyntheticAlphaThreshold);
+    const auto disabled = iconrecognition::detail::BuildRegionUnavailableTemplate(normal, dark_band, white_mark, kSyntheticAlphaThreshold);
     const cv::Rect roi { 0, 0, kTransferSyntheticWidth, kTransferSyntheticHeight };
     const cv::Point cell_origin { 2, 2 };
     cv::Mat grid_background = cv::Mat::zeros(roi.size(), CV_8UC3);
@@ -414,9 +410,7 @@ void TestMalformedScalarParametersAreRejected()
              std::pair { R"({"grid_type":"single_roi","subpixel_threshold":"bad"})", "subpixel_threshold" },
              std::pair { R"({"grid_type":"single_roi","debug":"bad"})", "debug" },
              std::pair { R"({"grid_type":"transfer","deduplicate":"bad"})", "deduplicate" },
-             std::pair {
-                 R"({"grid_type":"single_roi","recognize_region_unavailable":"bad"})",
-                 "recognize_region_unavailable" },
+             std::pair { R"({"grid_type":"single_roi","recognize_region_unavailable":"bad"})", "recognize_region_unavailable" },
          }) {
         MaaRect out_box { 101, 202, 303, 404 };
         const auto detail = RunFailure(image.get(), param, out_box);
@@ -489,9 +483,7 @@ void TestSuccessfulSingleRoiUsesPrimaryCellBox()
     Require(match.contains("cell_box") && match.at("cell_box").is_array(), "successful match must contain array cell_box");
     Require(match.contains("item_box") && match.at("item_box").is_array(), "successful match must contain array item_box");
     Require(match.contains("score") && match.at("score").is_number(), "successful match must contain score");
-    Require(
-        !match.contains("region_unavailable"),
-        "normal successful match must omit region_unavailable");
+    Require(!match.contains("region_unavailable"), "normal successful match must omit region_unavailable");
     const auto& cell_box = match.at("cell_box").as_array();
     Require(cell_box.size() == 4, "cell_box must contain four components");
     Require(out_box.x == cell_box.at(0).as_integer(), "out_box.x must equal primary cell_box.x");
@@ -638,8 +630,7 @@ void TestRegionRestrictedFallbackRunsOnlyAfterNormalRejection()
         !normal_result.matches.front().region_unavailable,
         "normal template match must not be marked unavailable in the current region");
     Require(
-        normal_result.diagnostics
-            && !normal_result.diagnostics->cells.front().region_unavailable_fallback_used,
+        normal_result.diagnostics && !normal_result.diagnostics->cells.front().region_unavailable_fallback_used,
         "accepted normal match must not run disabled fallback");
 
     const auto disabled_fixture = MakeRegionRestrictedFixture("generated-region-restricted-disabled", true);
@@ -654,12 +645,9 @@ void TestRegionRestrictedFallbackRunsOnlyAfterNormalRejection()
     const auto disabled_result = disabled_recognizer.recognize(disabled_fixture.disabled_pixels, request);
     Require(disabled_result.matched && disabled_result.matches.size() == 1, "enabled fallback must recognize the disabled template");
     Require(disabled_result.matches.front().item.item_id == "restricted", "disabled fallback must preserve the original item id");
+    Require(disabled_result.matches.front().region_unavailable, "region-unavailable fallback match must preserve its state");
     Require(
-        disabled_result.matches.front().region_unavailable,
-        "region-unavailable fallback match must preserve its state");
-    Require(
-        disabled_result.diagnostics
-            && disabled_result.diagnostics->cells.front().region_unavailable_fallback_used,
+        disabled_result.diagnostics && disabled_result.diagnostics->cells.front().region_unavailable_fallback_used,
         "disabled fallback diagnostics must record that the fallback was used");
 
     request.candidates.item_recheck_filters = { "Normal:Ore" };
@@ -667,9 +655,7 @@ void TestRegionRestrictedFallbackRunsOnlyAfterNormalRejection()
     Require(
         rechecked_disabled_result.matched && rechecked_disabled_result.matches.size() == 1,
         "item recheck must preserve a disabled fallback match");
-    Require(
-        rechecked_disabled_result.matches.front().region_unavailable,
-        "rechecked fallback must retain region_unavailable=true");
+    Require(rechecked_disabled_result.matches.front().region_unavailable, "rechecked fallback must retain region_unavailable=true");
 
     // 地区禁用后备不应随着开关误应用到交易、奖励或单 ROI 等其他界面。
     request.grid_type = iconrecognition::GridType::SingleRoi;

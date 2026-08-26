@@ -32,14 +32,10 @@ ParsedFilter ParseFilter(std::string_view filter, std::string_view field)
 bool MatchesFilter(const TemplateRecord& record, std::string_view filter, std::string_view field)
 {
     const auto parsed = ParseFilter(filter, field);
-    return parsed.storage_kind == record.storage_kind
-        && (parsed.category_type == "*" || parsed.category_type == record.category_type);
+    return parsed.storage_kind == record.storage_kind && (parsed.category_type == "*" || parsed.category_type == record.category_type);
 }
 
-void ValidateKnownFilters(
-    const std::vector<PreparedTemplate>& all,
-    const std::vector<std::string>& filters,
-    std::string_view field)
+void ValidateKnownFilters(const std::vector<PreparedTemplate>& all, const std::vector<std::string>& filters, std::string_view field)
 {
     ValidateCandidateFilterList(filters, field);
     for (const auto& filter : filters) {
@@ -49,10 +45,7 @@ void ValidateKnownFilters(
     }
 }
 
-void ValidateKnownIDs(
-    const std::vector<PreparedTemplate>& all,
-    const std::vector<std::string>& item_ids,
-    std::string_view field)
+void ValidateKnownIDs(const std::vector<PreparedTemplate>& all, const std::vector<std::string>& item_ids, std::string_view field)
 {
     for (const auto& item_id : item_ids) {
         if (!std::ranges::any_of(all, [&](const auto& templ) { return templ.record.item_id == item_id; })) {
@@ -61,10 +54,7 @@ void ValidateKnownIDs(
     }
 }
 
-bool MatchesAnyFilter(
-    const TemplateRecord& record,
-    const std::vector<std::string>& filters,
-    std::string_view field)
+bool MatchesAnyFilter(const TemplateRecord& record, const std::vector<std::string>& filters, std::string_view field)
 {
     return std::ranges::any_of(filters, [&](const auto& filter) { return MatchesFilter(record, filter, field); });
 }
@@ -95,11 +85,8 @@ std::vector<PreparedTemplate> SelectCandidateTemplates(
     result.reserve(all.size());
     for (const auto& templ : all) {
         const bool base_match = MatchesAnyFilter(templ.record, base_filters, "item_filters")
-            && (requested_ids.empty() || requested_ids.contains(templ.record.item_id));
-        const bool additional_match = MatchesAnyFilter(
-            templ.record,
-            candidates.additional_item_filters,
-            "additional_item_filters");
+                                && (requested_ids.empty() || requested_ids.contains(templ.record.item_id));
+        const bool additional_match = MatchesAnyFilter(templ.record, candidates.additional_item_filters, "additional_item_filters");
         if ((base_match || additional_match) && !excluded_ids.contains(templ.record.item_id)) {
             result.push_back(templ);
         }

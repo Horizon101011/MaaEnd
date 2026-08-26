@@ -13,8 +13,8 @@
 
 #include <MaaUtils/Logger.h>
 
-#include "detail/EdgeOcclusion.h"
 #include "detail/CandidateSelector.h"
+#include "detail/EdgeOcclusion.h"
 #include "detail/ForegroundTexture.h"
 #include "detail/GridDetector.h"
 #include "detail/GridProfiles.h"
@@ -398,10 +398,7 @@ struct CellEvaluation
     bool edge_recovery_used = false;
     bool accepted = false;
 
-    const std::vector<detail::PreparedTemplate>& effectiveTemplates() const
-    {
-        return edge_recovery_used ? edge_active : active;
-    }
+    const std::vector<detail::PreparedTemplate>& effectiveTemplates() const { return edge_recovery_used ? edge_active : active; }
 
     const detail::PreparedTemplate& bestTemplate() const { return effectiveTemplates().at(ranking.best.template_index); }
 };
@@ -488,21 +485,21 @@ CellEvaluation EvaluateCellTemplates(
     const auto& best = result.ranking.best;
     const auto& templ = result.bestTemplate();
     result.top2_margin = result.ranking.ranked.size() > 1
-        ? std::optional<double>(best.diagnostics.score - result.ranking.ranked[1].diagnostics.score)
-        : std::nullopt;
+                             ? std::optional<double>(best.diagnostics.score - result.ranking.ranked[1].diagnostics.score)
+                             : std::nullopt;
     const bool texture_rejected = best.diagnostics.score >= threshold && low_texture;
     result.accepted = best.diagnostics.score >= threshold && !texture_rejected;
     if (!result.accepted) {
-        result.rejected_reason = texture_rejected
-            ? "low-foreground-texture"
-            : (best.diagnostics.score < subpixel_threshold ? "below-subpixel-threshold" : "below-accept-threshold");
+        result.rejected_reason =
+            texture_rejected ? "low-foreground-texture"
+                             : (best.diagnostics.score < subpixel_threshold ? "below-subpixel-threshold" : "below-accept-threshold");
     }
     result.mask_kind = single_roi
-        ? (templ.composite ? "composite_union" : "lower_extended")
-        : ActiveMaskKind(grid_type, selected, result.active)
-            + (result.edge_recovery_used
-                   ? (result.edge_occlusion->side == detail::EdgeOcclusionSide::Top ? "+edge_top" : "+edge_bottom")
-                   : "");
+                           ? (templ.composite ? "composite_union" : "lower_extended")
+                           : ActiveMaskKind(grid_type, selected, result.active)
+                                 + (result.edge_recovery_used
+                                        ? (result.edge_occlusion->side == detail::EdgeOcclusionSide::Top ? "+edge_top" : "+edge_bottom")
+                                        : "");
     if (templ.region_unavailable) {
         result.mask_kind += "+region_unavailable_overlay";
     }
@@ -624,8 +621,7 @@ public:
                     for (const double grid_scale : detail::kSupportedControllerGridScales) {
                         const int target_size = TemplateSizeFor(request.grid_type, grid_scale);
                         static_cast<void>(catalog_.load(target_size));
-                        if (request.recognize_region_unavailable
-                            && SupportsRegionUnavailableRecognition(request.grid_type)) {
+                        if (request.recognize_region_unavailable && SupportsRegionUnavailableRecognition(request.grid_type)) {
                             static_cast<void>(catalog_.loadRegionUnavailable(target_size));
                         }
                     }
@@ -692,11 +688,10 @@ public:
                 cells.push_back(detail::GridCell { .cell_box = request.roi });
                 template_size = request.roi.width;
                 const auto selection_started = performance ? PerformanceClock::now() : PerformanceClock::time_point {};
-                selected =
-                    detail::SelectCandidateTemplates(
-                        RoiTemplates(request.roi.width),
-                        request.candidates,
-                        detail::DefaultItemFilters(request.grid_type));
+                selected = detail::SelectCandidateTemplates(
+                    RoiTemplates(request.roi.width),
+                    request.candidates,
+                    detail::DefaultItemFilters(request.grid_type));
                 if (performance) {
                     performance->template_selection_ms += ElapsedMilliseconds(selection_started);
                 }
@@ -734,11 +729,10 @@ public:
                     result.diagnostics->grids.push_back(*grid.selection_diagnostics);
                 }
             }
-            const bool has_region_restricted_candidates = std::ranges::any_of(
-                selected,
-                [](const auto& templ) { return templ.record.region_restricted; });
-            const bool region_unavailable_enabled = request.recognize_region_unavailable
-                && SupportsRegionUnavailableRecognition(request.grid_type);
+            const bool has_region_restricted_candidates =
+                std::ranges::any_of(selected, [](const auto& templ) { return templ.record.region_restricted; });
+            const bool region_unavailable_enabled =
+                request.recognize_region_unavailable && SupportsRegionUnavailableRecognition(request.grid_type);
             std::optional<std::vector<detail::PreparedTemplate>> region_unavailable_selected;
             for (const auto& cell : cells) {
                 const cv::Rect slot = single_roi ? cell.cell_box : SlotFor(request.grid_type, cell, grid_scale);
@@ -763,9 +757,8 @@ public:
                 if (!evaluation.accepted && region_unavailable_enabled && has_region_restricted_candidates) {
                     if (!region_unavailable_selected) {
                         const auto selection_started = performance ? PerformanceClock::now() : PerformanceClock::time_point {};
-                        region_unavailable_selected = SelectRegionUnavailableVariants(
-                            catalog_.loadRegionUnavailable(template_size),
-                            selected);
+                        region_unavailable_selected =
+                            SelectRegionUnavailableVariants(catalog_.loadRegionUnavailable(template_size), selected);
                         if (performance) {
                             performance->template_selection_ms += ElapsedMilliseconds(selection_started);
                         }
@@ -812,13 +805,11 @@ public:
                     .mask_kind = evaluation.mask_kind,
                     .edge_occlusion_side = evaluation.edge_recovery_used ? std::optional<std::string>(
                                                evaluation.edge_occlusion->side == detail::EdgeOcclusionSide::Top ? "top" : "bottom")
-                                                                        : std::nullopt,
-                    .edge_occlusion_cutoff = evaluation.edge_recovery_used
-                        ? std::optional<int>(evaluation.edge_occlusion->cutoff)
-                        : std::nullopt,
-                    .edge_occlusion_residual_ratio = evaluation.edge_recovery_used
-                        ? std::optional<double>(evaluation.edge_occlusion->residual_ratio)
-                        : std::nullopt,
+                                                                         : std::nullopt,
+                    .edge_occlusion_cutoff =
+                        evaluation.edge_recovery_used ? std::optional<int>(evaluation.edge_occlusion->cutoff) : std::nullopt,
+                    .edge_occlusion_residual_ratio =
+                        evaluation.edge_recovery_used ? std::optional<double>(evaluation.edge_occlusion->residual_ratio) : std::nullopt,
                     .row = single_roi ? std::optional<int> {} : std::optional<int>(cell.row),
                     .column = single_roi ? std::optional<int> {} : std::optional<int>(cell.column),
                 });
@@ -861,9 +852,8 @@ public:
                     // 附加类型不属于显式 item_ids，不能被只为原始 ID 配置的反查过滤器误删。
                     bool valid = true;
                     if (original_item_ids.contains(candidate.item.item_id)) {
-                        auto& template_cache = candidate.region_unavailable
-                            ? region_unavailable_recheck_templates_by_size
-                            : recheck_templates_by_size;
+                        auto& template_cache =
+                            candidate.region_unavailable ? region_unavailable_recheck_templates_by_size : recheck_templates_by_size;
                         auto [templates, inserted] = template_cache.try_emplace(candidate.cell_box.width);
                         if (inserted) {
                             templates->second = detail::SelectCandidateTemplates(

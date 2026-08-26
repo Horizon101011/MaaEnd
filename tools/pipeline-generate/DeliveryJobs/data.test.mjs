@@ -829,6 +829,7 @@ test("DeliveryJobs and SeizeDeliveryJobs compose AutoDelivery through continuati
             "DeliveryJobsAutoDeliveryGuard",
             "AutoDelivery",
         ]);
+        assert.equal(pipeline[`DeliveryJobsAutoDelivery${depot.Id}`].focus, undefined);
         for (const node of [
             `DeliveryJobsPrepareAutoDelivery${depot.Id}`,
             `DeliveryJobsResumeAutoDelivery${depot.Id}`,
@@ -911,6 +912,9 @@ test("AutoDelivery keeps its task-detail entry and default branch flow explicit"
         false,
     );
     assert.equal(common.AutoDelivery.anchor, undefined);
+    assert.deepEqual(common.AutoDelivery.focus, {
+        "Node.Recognition.Succeeded": "$task.AutoDelivery.focus.start",
+    });
     assert.deepEqual(common.AutoDelivery.all_of, [
         "AutoDeliveryAreaOCR",
         "AutoDeliveryCurrentJobActionButton",
@@ -1108,7 +1112,7 @@ test("AutoDelivery keeps its task-detail entry and default branch flow explicit"
         "AutoDeliveryInMissionMenu",
     ]);
     assert.deepEqual(pickup.AutoDeliveryDeliveryMissionSelected.next, [
-        "AutoDelivery",
+        "AutoDeliveryRecognizeDestination",
     ]);
     assert.deepEqual(
         pickupAdb.AutoDeliveryDeliveryMissionListItem.roi,

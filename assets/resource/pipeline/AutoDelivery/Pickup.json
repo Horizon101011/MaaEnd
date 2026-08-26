@@ -47,14 +47,10 @@
     },
     "AutoDeliveryInDestinationMap": {
         "desc": "确认已打开任务目标地图",
-        "recognition": "TemplateMatch",
-        "roi": [
-            900,
-            10,
-            130,
-            140
+        "recognition": "And",
+        "all_of": [
+            "AutoDeliveryTaskDestinationMap"
         ],
-        "template": "AutoDelivery/TrackTaskSuccess.png",
         "pre_delay": 0,
         "post_delay": 0,
         "rate_limit": 0,
@@ -242,6 +238,9 @@
             "Node.Action.Failed": {
                 "trace": true
             }
+        },
+        "attach": {
+            "zip": false
         }
     },
     "AutoDeliveryFetchGoods": {
@@ -344,6 +343,15 @@
         "pre_delay": 0,
         "action": "Custom",
         "custom_action": "FalseAction",
+        "post_wait_freezes": {
+            "time": 300,
+            "target": [
+                763,
+                349,
+                195,
+                270
+            ]
+        },
         "post_delay": 0,
         "rate_limit": 0,
         "next": [

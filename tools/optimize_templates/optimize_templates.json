@@ -1716,5 +1716,6 @@
     "resource/image/SceneManager/MapTeleportCoreHub": "df4c3d61a6d98c462485e70a83477956acb071a8687da2234fde67dbf8608b96",
     "resource/image/SceneManager/MapTeleportCoreSettlement": "28acc85ac69096687201abfb595a673cb7e96e8b2b6396a2412633b821b4addd",
     "resource/image/SceneManager/MapMarkerPanelDelete": "71c039237bd2baa8b67b3c2081b0f2e0f4829245b53d8b359e7c451d9f80a192",
-    "resource/image/SceneManager/MapTeleportAnchor": "43a7ed95e897ad7546f8df365462d51adb3ff73b24c510a09048b8db386d4e1a"
+    "resource/image/SceneManager/MapTeleportAnchor": "43a7ed95e897ad7546f8df365462d51adb3ff73b24c510a09048b8db386d4e1a",
+    "resource/image/AutoDelivery/RecycleBin": "c78b07db88543a3c4a053fe9cd3150800116551bb86d617c4dc35b86549debff"
 }

@@ -28,8 +28,10 @@ ZONE_HINT_KEYS = ("map_name", "mapName", "zone", "zone_id", "zoneId")
 ACTION_KEYS = ("action", "action_type", "actionType", "type")
 STRICT_KEYS = ("strict", "strict_arrival", "strictArrival")
 TARGET_TIER_KEYS = ("target_tier", "targetTier")
+TARGET_DECK_Y_KEYS = ("target_deck_y", "targetDeckY")
 CONTROL_ACTION_NAMES = {"HEADING", "ZONE"}
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+ASSETS_DIR = PROJECT_ROOT / "assets"
 MAP_LOCATOR_DIR = PROJECT_ROOT / "assets" / "resource" / "image" / "MapLocator"
 
 
@@ -45,6 +47,168 @@ class ImportedAssertLocation:
     zone_id: str
     target: tuple[float, float, float, float]
     condition_count: int
+
+
+@dataclass(frozen=True)
+class ProjectImportNode:
+    kind: str
+    resource_path: str
+    node_name: str
+    point_count: int = 0
+    navmesh_count: int = 0
+    zone_ids: tuple[str, ...] = ()
+    zone_id: str = ""
+    target: tuple[float, float, float, float] | None = None
+    condition_count: int = 0
+
+
+def scan_project_import_nodes(
+    assets_dir: str | Path = ASSETS_DIR,
+) -> list[ProjectImportNode]:
+    """列出 assets 中可导入的 MapNavigateAction 与 MapLocateAssertLocation 节点。"""
+    root = Path(assets_dir).resolve()
+    if not root.is_dir():
+        return []
+
+    nodes: list[ProjectImportNode] = []
+    candidates = sorted(
+        (path for path in root.rglob("*") if path.suffix.lower() in {".json", ".jsonc"}),
+        key=lambda path: path.as_posix().casefold(),
+    )
+    for file_path in candidates:
+        try:
+            resolved_file = file_path.resolve()
+            resolved_file.relative_to(root)
+            text = resolved_file.read_text(encoding="utf-8")
+            if '"MapNavigateAction"' not in text and '"MapLocateAssertLocation"' not in text:
+                continue
+            data = _load_jsonc_text(text)
+        except (OSError, ValueError):
+            # assets 中的单个无效文件不应阻断其他可用节点的发现。
+            continue
+        if not isinstance(data, dict):
+            continue
+
+        resource_path = resolved_file.relative_to(root.parent).as_posix()
+        for node_name, node in data.items():
+            try:
+                route = _project_map_navigate_route(node)
+                assert_locations = discover_assert_locations(node)
+            except (TypeError, ValueError):
+                route = None
+                assert_locations = []
+            if route is not None:
+                zone_ids = tuple(
+                    sorted(
+                        {
+                            zone_id
+                            for point in route
+                            if (zone_id := normalize_zone_id(point.get("zone", "")))
+                        }
+                    )
+                )
+                nodes.append(
+                    ProjectImportNode(
+                        kind="path",
+                        resource_path=resource_path,
+                        node_name=str(node_name),
+                        point_count=len(route),
+                        navmesh_count=sum(
+                            int(ActionType.NAVMESH) in get_point_actions(point) for point in route
+                        ),
+                        zone_ids=zone_ids,
+                    )
+                )
+
+            if assert_locations:
+                location = assert_locations[0]
+                nodes.append(
+                    ProjectImportNode(
+                        kind="assert",
+                        resource_path=resource_path,
+                        node_name=str(node_name),
+                        zone_id=location.zone_id,
+                        target=location.target,
+                        condition_count=len(assert_locations),
+                    )
+                )
+
+    return sorted(
+        nodes,
+        key=lambda node: (
+            node.resource_path.casefold(),
+            node.node_name.casefold(),
+            node.kind,
+            node.resource_path,
+            node.node_name,
+        ),
+    )
+
+
+def load_project_import_node(
+    kind: str,
+    resource_path: str,
+    node_name: str,
+    assets_dir: str | Path = ASSETS_DIR,
+) -> dict[str, Any]:
+    """从受限的 assets 相对路径重新读取指定的项目导入节点。"""
+    file_path = _resolve_project_resource_file(resource_path, assets_dir)
+    data = load_jsonc(file_path)
+    if not isinstance(data, dict):
+        raise ValueError("所选资源文件不是 Pipeline 节点对象")
+    node = data.get(node_name)
+
+    if kind == "path":
+        route = _project_map_navigate_route(node)
+        if route is None:
+            raise ValueError("所选节点不是带有效 path 的 MapNavigateAction")
+        param = node["custom_action_param"]
+        return {"kind": "path", "path": param["path"]}
+
+    if kind == "assert":
+        assert_locations = discover_assert_locations(node)
+        if not assert_locations:
+            raise ValueError("所选节点不包含有效的 MapLocateAssertLocation")
+        location = assert_locations[0]
+        return {
+            "kind": "assert",
+            "zone_id": location.zone_id,
+            "target": list(location.target),
+            "condition_count": len(assert_locations),
+        }
+
+    raise ValueError("不支持的项目节点类型")
+
+
+def _resolve_project_resource_file(
+    resource_path: str,
+    assets_dir: str | Path,
+) -> Path:
+    root = Path(assets_dir).resolve()
+    requested = Path(str(resource_path).replace("\\", "/"))
+    if requested.is_absolute():
+        raise ValueError("资源路径必须是 assets 下的相对路径")
+
+    file_path = (root.parent / requested).resolve()
+    try:
+        file_path.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("资源路径不在项目 assets 目录内") from exc
+    if file_path.suffix.lower() not in {".json", ".jsonc"}:
+        raise ValueError("只支持读取 assets 下的 JSON / JSONC 文件")
+    if not file_path.is_file():
+        raise ValueError("所选资源文件不存在")
+    return file_path
+
+
+def _project_map_navigate_route(node: Any) -> list[PathPoint] | None:
+    if not isinstance(node, dict) or node.get("custom_action") != "MapNavigateAction":
+        return None
+    param = node.get("custom_action_param")
+    if not isinstance(param, dict):
+        return None
+    path = param.get("path")
+    return _parse_route(path, "")
 
 
 def load_points_from_json_file(file_path: str | Path) -> ImportedRoute:
@@ -83,6 +247,7 @@ def export_path_nodes(points: list[PathPoint]) -> list[dict[str, Any] | list[int
         strict_arrival = coerce_strict_arrival(point.get("strict"), default=False)
         required = coerce_strict_arrival(point.get("required"), default=False)
         target_tier = normalize_zone_id(point.get("target_tier", ""))
+        target_deck_y = point.get("target_deck_y")
         for action in get_point_actions(point):
             target = [_compact_number(point["x"]), _compact_number(point["y"])]
             if action == int(ActionType.NAVMESH):
@@ -90,6 +255,8 @@ def export_path_nodes(points: list[PathPoint]) -> list[dict[str, Any] | list[int
                 navmesh_node: dict[str, Any] = {"action": "NAVMESH", "target": target}
                 if target_tier:
                     navmesh_node["target_tier"] = target_tier
+                if target_deck_y is not None:
+                    navmesh_node["target_deck_y"] = _compact_number(target_deck_y)
                 if required:
                     navmesh_node["required"] = True
                 exported_nodes.append(navmesh_node)
@@ -149,6 +316,10 @@ def export_assert_location_node(zone_id: str, target: tuple[float, float, float,
 
 def load_jsonc(file_path: str | Path) -> Any:
     text = Path(file_path).read_text(encoding="utf-8")
+    return _load_jsonc_text(text)
+
+
+def _load_jsonc_text(text: str) -> Any:
     sanitized = strip_json_comments(text)
     sanitized = strip_trailing_commas(sanitized)
     try:
@@ -405,7 +576,7 @@ def _parse_point_dict(node: dict[str, Any], zone_hint: str) -> PathPoint | None:
     x = _as_float(node.get("x"))
     y = _as_float(node.get("y"))
     if x is None or y is None:
-        # NAVMESH 路点写作 target: [x, y] (工具「复制 JSON 配置」的导出格式)。
+        # NAVMESH 路点写作 target: [x, y] (工具「复制路径」的导出格式)。
         # 长度必须是 2：断言的 target 是 [x, y, w, h] 矩形，不是路点。
         target = node.get("target")
         if isinstance(target, list) and len(target) == 2:
@@ -444,6 +615,9 @@ def _parse_point_dict(node: dict[str, Any], zone_hint: str) -> PathPoint | None:
     target_tier = _resolve_target_tier(node)
     if target_tier:
         point["target_tier"] = target_tier
+    target_deck_y = _resolve_target_deck_y(node)
+    if target_deck_y is not None:
+        point["target_deck_y"] = target_deck_y
     return point
 
 
@@ -528,6 +702,16 @@ def _resolve_target_tier(node: dict[str, Any]) -> str:
         if target_tier:
             return target_tier
     return ""
+
+
+def _resolve_target_deck_y(node: dict[str, Any]) -> float | None:
+    for key in TARGET_DECK_Y_KEYS:
+        if key not in node:
+            continue
+        target_deck_y = _as_float(node.get(key))
+        if target_deck_y is not None and math.isfinite(target_deck_y):
+            return target_deck_y
+    return None
 
 
 def _as_float(value: Any) -> float | None:

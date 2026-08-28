@@ -422,6 +422,7 @@ canvas {
   pointer-events: auto;
 }
 
+.edit-inspection-box,
 .log-inspection-box,
 .log-distance-box {
   display: flex;
@@ -436,6 +437,7 @@ canvas {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
+.edit-inspection-box,
 .log-inspection-box {
   border-color: rgba(34, 211, 238, 0.34);
 }
@@ -927,6 +929,12 @@ canvas {
 .combo-action {
   flex: 1;
   min-width: 90px;
+}
+
+.waypoint-option-row {
+  justify-content: flex-end;
+  gap: 16px;
+  margin: 8px 0;
 }
 
 .combo-zone {
@@ -1719,6 +1727,14 @@ canvas {
   font-weight: 600;
 }
 
+.project-node-desc {
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .project-node-path {
   color: var(--text-secondary);
   font-family: var(--font-mono, monospace);
@@ -1983,6 +1999,53 @@ canvas {
 .mode-astar .btn-tool.group-astar,
 #canvas-wrap.mode-astar .btn-tool.group-astar {
   display: flex !important;
+}
+
+.nav-debug-options {
+  display: block;
+  padding-top: 8px;
+}
+
+.nav-debug-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.nav-debug-summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-debug-chevron {
+  width: 0;
+  height: 0;
+  margin-right: 2px;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 5px solid var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.nav-debug-options[open] .nav-debug-chevron {
+  transform: rotate(90deg);
+}
+
+.nav-debug-options-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  padding-top: 4px;
+}
+
+.nav-debug-options-body .chk {
+  display: flex;
+  width: 100%;
+  margin-top: 6px;
 }
 
 .mode-assert .btn-tool.group-assert,

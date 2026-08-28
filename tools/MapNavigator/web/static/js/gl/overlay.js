@@ -31,6 +31,7 @@ const SELECTION_RECT_STROKE = '#38bdf8';
 // Off-mesh warnings share the amber of the hint marker — "look here", never "blocked".
 const OFFMESH_COLOR = '#ffaa00';
 const OFFMESH_DIM = 'rgba(255, 170, 0, 0.55)';
+const ROUTE_FAILURE_COLOR = '#ef4444';
 
 export class Overlay {
   /**
@@ -71,7 +72,10 @@ export class Overlay {
    *   @param {Array<Object>} [vm.points] current-segment points (display-frame coords)
    *   @param {?number} [vm.selectedIdx] primary selection (local index into vm.points)
    *   @param {Set<number>} [vm.selectedIndices] multi-selection (local indices)
+   *   @param {?Object} [vm.editPreview] runtime preview for the current edit segment
+   *   @param {?{x:number,y:number,label:string,selected:boolean}} [vm.editPreviewStart] manual EDIT planning start
    *   @param {?number[]} [vm.assertTarget] `[x,y,w,h]` display-frame, or null
+   *   @param {?{x:number,y:number,label:string,rot:?number}} [vm.editLocateHint] EDIT reference marker
    *   @param {?{x:number,y:number,label:string,rot:?number}} [vm.assertLocateHint] game locate marker
    *   @param {?Array<{x:number,y:number,label:string,rot:?number}>} [vm.astarLocateHints] preview markers
    *   @param {Object} [vm.astar] see {@link Overlay#_drawAstarPreview}
@@ -91,8 +95,24 @@ export class Overlay {
     // Real route points in every mode (the caller decides which ones are in frame);
     // assert/A* artifacts are layered on top so they stay readable over a route.
     this._drawPath(camera, vm.points || []);
+    if (mode === 'edit') {
+      if (vm.editPreview) {
+        this._drawAstarPreview(camera, vm.editPreview);
+        this._drawAstarDiagnostics(camera, vm.editPreview.diagnostics, vm.editPreview.debugOptions || {});
+        this._drawRouteFailure(camera, vm.editPreview.failure);
+      }
+      this._drawLivePath(camera, vm.livePath);
+    }
     this._drawNodes(camera, vm.points || [], vm.selectedIdx, vm.selectedIndices || new Set());
 
+    if (mode === 'edit' && vm.editPreviewStart) {
+      this._drawPlanningStartMarker(camera, vm.editPreviewStart);
+    }
+
+    if (mode === 'edit' && vm.editLocateHint) {
+      const hint = vm.editLocateHint;
+      this._drawHintMarker(camera, hint.x, hint.y, hint.label, hint.rot);
+    }
     if (mode === 'assert') {
       this._drawAssertRect(camera, vm.assertTarget || null);
       const hint = vm.assertLocateHint;
@@ -104,6 +124,8 @@ export class Overlay {
       }
       if (vm.astar) {
         this._drawAstarPreview(camera, vm.astar);
+        this._drawAstarDiagnostics(camera, vm.astar.diagnostics, vm.astar.debugOptions || {});
+        this._drawLivePath(camera, vm.astar.livePath);
       }
     }
     if (mode === 'log' && vm.logAnalysis) {
@@ -115,6 +137,102 @@ export class Overlay {
     if (vm.selectionRect) {
       this._drawSelectionRect(vm.selectionRect);
     }
+  }
+
+  /**
+   * Runtime-confirmed connectivity gap, falling back to the whole authored leg when detailed diagnosis
+   * is unavailable. Coordinates are already projected into the current display frame.
+   * @param {Camera} camera
+   * @param {?{segment_start?:number[],segment_goal?:number[],gap_start?:number[],gap_goal?:number[],gap_distance?:number}} failure
+   * @returns {void}
+   */
+  _drawRouteFailure(camera, failure) {
+    if (!failure) return;
+    const precise = !!(failure.gap_start && failure.gap_goal);
+    const start = precise ? failure.gap_start : failure.segment_start;
+    const goal = precise ? failure.gap_goal : failure.segment_goal;
+    if (!start || !goal) return;
+    const [x1, y1] = camera.worldToCanvas(start[0], start[1]);
+    const [x2, y2] = camera.worldToCanvas(goal[0], goal[1]);
+    if (![x1, y1, x2, y2].every(Number.isFinite)) return;
+
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.setLineDash([9, 6]);
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.65)';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    ctx.strokeStyle = ROUTE_FAILURE_COLOR;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    for (const [x, y] of [
+      [x1, y1],
+      [x2, y2],
+    ]) {
+      ctx.beginPath();
+      ctx.arc(x, y, 8, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(11, 18, 32, 0.9)';
+      ctx.fill();
+      ctx.strokeStyle = ROUTE_FAILURE_COLOR;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    }
+
+    this._drawCaption(x1, y1 - 24, precise ? '起点侧边界' : '失败段起点', ROUTE_FAILURE_COLOR);
+    this._drawCaption(x2, y2 - 24, precise ? '目标侧边界' : '失败目标', ROUTE_FAILURE_COLOR);
+    const distance = Number(failure.gap_distance);
+    const gapLabel = precise && Number.isFinite(distance) ? `断口 ${distance.toFixed(1)} px` : '未连通段';
+    this._drawCaption((x1 + x2) / 2, (y1 + y2) / 2, gapLabel, ROUTE_FAILURE_COLOR);
+    ctx.restore();
+  }
+
+  /** Cyan S badge for the preview-only planning start. */
+  _drawPlanningStartMarker(camera, marker) {
+    if (!marker || !Number.isFinite(marker.x) || !Number.isFinite(marker.y)) return;
+    const [cx, cy] = camera.worldToCanvas(marker.x, marker.y);
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.setLineDash([]);
+
+    if (marker.selected) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, 17, 0, Math.PI * 2);
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, 13, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(0, 225, 255, 0.45)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+    ctx.fillStyle = '#00b8d4';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold 10px ${MONO}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('S', cx, cy + 0.5);
+    ctx.restore();
+    this._drawCaption(cx, cy + 25, marker.label || '规划起点', '#67e8f9');
   }
 
   /**
@@ -577,8 +695,8 @@ export class Overlay {
     ctx.restore();
   }
 
-  /** Amber caption on a dark plate, centered at (cx, cy). @returns {void} */
-  _drawCaption(cx, cy, text) {
+  /** Caption on a dark plate, centered at (cx, cy). @returns {void} */
+  _drawCaption(cx, cy, text, color = OFFMESH_COLOR) {
     const ctx = this.ctx;
     ctx.save();
     ctx.setLineDash([]);
@@ -590,14 +708,14 @@ export class Overlay {
     const w = ctx.measureText(text).width + padX * 2;
     const h = 15;
     ctx.fillStyle = 'rgba(11, 18, 32, 0.85)';
-    ctx.strokeStyle = OFFMESH_COLOR;
+    ctx.strokeStyle = color;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.rect(cx - w / 2, cy - h / 2, w, h);
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = OFFMESH_COLOR;
+    ctx.fillStyle = color;
     ctx.fillText(text, cx, cy);
     ctx.restore();
   }
@@ -805,15 +923,22 @@ export class Overlay {
    *   @param {number[][]} [astar.waypoints] multi-leg click points (S, 2..n-1, G badges)
    *   @param {Array<Object>} [astar.blindWalks] straight lines the runtime walks off-mesh —
    *     see {@link Overlay#_drawBlindWalks}
+   *   @param {number[][][]} [astar.walkSegments] runtime-expanded walking polylines
+   *   @param {Array<{from:number[],to:number[]}>} [astar.ziplineSegments] selected zipline hops
    * @returns {void}
    */
   _drawAstarPreview(camera, astar) {
     const ctx = this.ctx;
     const previewPoints = astar.previewPoints || [];
+    const walkSegments = astar.walkSegments || [];
+    const ziplineSegments = astar.ziplineSegments || [];
+    const usesRuntimeSegments = walkSegments.length > 0 || ziplineSegments.length > 0;
 
-    if (previewPoints.length >= 2) {
+    if (astar.showPlannedPath !== false && previewPoints.length >= 2) {
       ctx.save();
-      const segments = this._astarSegments(previewPoints, astar.segmentBreaks, astar.hasRoute);
+      const segments = usesRuntimeSegments
+        ? walkSegments
+        : this._astarSegments(previewPoints, astar.segmentBreaks, astar.hasRoute);
 
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
@@ -834,13 +959,19 @@ export class Overlay {
       ctx.lineWidth = 1.0;
       this._strokeSegments(camera, segments);
 
-      this._drawFlowingParticle(camera, segments);
       ctx.restore();
     }
 
+    this._drawZiplineSegments(camera, ziplineSegments);
+
     this._drawBlindWalks(camera, astar.blindWalks || []);
 
-    if (astar.segmentBreaks && astar.segmentBreaks.length) {
+    if (
+      astar.showPlannedPath !== false &&
+      !usesRuntimeSegments &&
+      astar.segmentBreaks &&
+      astar.segmentBreaks.length
+    ) {
       const breakRadius = Math.max(1.5, Math.min(4, 2 * camera.viewScale));
       for (const idx of astar.segmentBreaks) {
         if (idx <= 0 || idx >= previewPoints.length - 1) continue;
@@ -909,6 +1040,117 @@ export class Overlay {
     }
   }
 
+  /** Draw runtime-selected zipline hops as cyan directed edges. */
+  _drawZiplineSegments(camera, segments) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.setLineDash([]);
+
+    for (const segment of segments) {
+      if (!segment.from || !segment.to) continue;
+      const [x1, y1] = camera.worldToCanvas(segment.from[0], segment.from[1]);
+      const [x2, y2] = camera.worldToCanvas(segment.to[0], segment.to[1]);
+      const stroke = (style, width) => {
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = style;
+        ctx.lineWidth = width;
+        ctx.stroke();
+      };
+      stroke('rgba(0, 0, 0, 0.45)', 7);
+      stroke('rgba(0, 225, 255, 0.35)', 5);
+      stroke('#00d9ff', 3);
+
+      const angle = Math.atan2(y2 - y1, x2 - x1);
+      const arrowX = x1 + (x2 - x1) * 0.65;
+      const arrowY = y1 + (y2 - y1) * 0.65;
+      const arrowSize = 7;
+      ctx.beginPath();
+      ctx.moveTo(arrowX + Math.cos(angle) * arrowSize, arrowY + Math.sin(angle) * arrowSize);
+      ctx.lineTo(arrowX + Math.cos(angle + 2.5) * arrowSize, arrowY + Math.sin(angle + 2.5) * arrowSize);
+      ctx.lineTo(arrowX + Math.cos(angle - 2.5) * arrowSize, arrowY + Math.sin(angle - 2.5) * arrowSize);
+      ctx.closePath();
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /**
+   * Draw reliable navigation diagnostics. These are the cells and stages returned by the
+   * planner, not a guessed heatmap of the priority queue.
+   * @param {Camera} camera
+   * @param {Array<Object>} diagnostics
+   * @param {{search?:boolean,rerouted?:boolean,stringPull?:boolean,assembled?:boolean,loopFixed?:boolean,slim?:boolean,widenCorners?:boolean}} options
+   * @returns {void}
+   */
+  _drawAstarDiagnostics(camera, diagnostics, options) {
+    if (!diagnostics || !diagnostics.length) return;
+    const ctx = this.ctx;
+    const drawDots = (points, color, radius, alpha) => {
+      if (!points || !points.length) return;
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.globalAlpha = alpha;
+      for (const point of points) {
+        const [x, y] = camera.worldToCanvas(point[0], point[1]);
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    };
+    const drawLine = (points, color, width, dash = [5, 3]) => {
+      if (!points || points.length < 2) return;
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.setLineDash(dash);
+      this._strokeSegments(camera, [points]);
+      ctx.restore();
+    };
+    for (const diag of diagnostics) {
+      if (options.search) {
+        drawDots(diag.astar_cells, '#38bdf8', 2.1, 0.9);
+        if (diag.astar_cells && diag.astar_cells.length > 1) {
+          ctx.save();
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 1.1;
+          ctx.setLineDash([2, 2]);
+          this._strokeSegments(camera, [diag.astar_cells]);
+          ctx.restore();
+        }
+      }
+      if (options.rerouted) {
+        drawDots(diag.rerouted_points, '#22c55e', 2.8, 0.95);
+        drawLine(diag.rerouted_points, '#22c55e', 1.8);
+      }
+      if (options.stringPull) {
+        drawDots(diag.string_pull_points, '#a78bfa', 2.8, 0.95);
+        drawLine(diag.string_pull_points, '#a78bfa', 2);
+      }
+      if (options.assembled) {
+        drawDots(diag.assembled_points, '#22d3ee', 3, 0.95);
+        drawLine(diag.assembled_points, '#22d3ee', 1.8);
+      }
+      if (options.loopFixed) {
+        drawDots(diag.loop_fixed_points, '#60a5fa', 3, 0.95);
+        drawLine(diag.loop_fixed_points, '#60a5fa', 1.8);
+      }
+      if (options.slim) {
+        drawDots(diag.slim_points, '#f59e0b', 3.1, 0.95);
+        drawLine(diag.slim_points, '#f59e0b', 2);
+      }
+      if (options.widenCorners) {
+        drawDots(diag.widened_points, '#fb7185', 3.4, 0.95);
+        drawLine(diag.widened_points, '#fb7185', 2.2);
+      }
+    }
+  }
+
   /**
    * Stroke every segment polyline with the context's current stroke style.
    * @param {Camera} camera @param {number[][][]} segments
@@ -928,58 +1170,58 @@ export class Overlay {
     }
   }
 
-  /**
-   * One white glowing particle that traces the whole route in a 6s loop (the
-   * animation-frame loop in main.js keeps rendering while a preview is shown).
-   * @param {Camera} camera @param {number[][][]} segments
-   * @returns {void}
-   */
-  _drawFlowingParticle(camera, segments) {
+  /** Draw the measured trajectory and latest real position, never an extrapolated one. */
+  _drawLivePath(camera, livePath) {
+    if (!livePath) return;
+    const points = (livePath.points || []).filter(
+      (point) => point && Number.isFinite(point.x) && Number.isFinite(point.y),
+    );
+    const current = livePath.current;
     const ctx = this.ctx;
-    const speedMs = 6000;
-    const pulseT = (Date.now() % speedMs) / speedMs;
 
-    const pts = [];
-    for (const segment of segments) {
-      for (const p of segment) {
-        const pt = camera.worldToCanvas(p[0], p[1]);
-        if (pts.length > 0) {
-          const last = pts[pts.length - 1];
-          if (Math.hypot(last[0] - pt[0], last[1] - pt[1]) < 0.1) continue;
-        }
-        pts.push(pt);
-      }
-    }
-    if (pts.length < 2) return;
-
-    const lengths = [];
-    let totalLength = 0;
-    for (let i = 0; i < pts.length - 1; i += 1) {
-      const dist = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
-      lengths.push(dist);
-      totalLength += dist;
-    }
-    if (!(totalLength > 0)) return;
-
-    let target = totalLength * pulseT;
-    let mx = pts[pts.length - 1][0];
-    let my = pts[pts.length - 1][1];
-    for (let i = 0; i < lengths.length; i += 1) {
-      if (target <= lengths[i]) {
-        const ratio = lengths[i] > 0 ? target / lengths[i] : 0;
-        mx = pts[i][0] + (pts[i + 1][0] - pts[i][0]) * ratio;
-        my = pts[i][1] + (pts[i + 1][1] - pts[i][1]) * ratio;
-        break;
-      }
-      target -= lengths[i];
+    if (points.length >= 2) {
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      points.forEach((point, index) => {
+        const [x, y] = camera.worldToCanvas(point.x, point.y);
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.65)';
+      ctx.lineWidth = 6;
+      ctx.stroke();
+      ctx.strokeStyle = '#22d3ee';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.restore();
     }
 
-    ctx.fillStyle = '#ffffff';
-    ctx.shadowColor = '#ffffff';
-    ctx.shadowBlur = 5;
+    if (!current || !Number.isFinite(current.x) || !Number.isFinite(current.y)) return;
+    const [cx, cy] = camera.worldToCanvas(current.x, current.y);
+    ctx.save();
+    ctx.setLineDash([]);
     ctx.beginPath();
-    ctx.arc(mx, my, 3.0, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(8, 15, 28, 0.9)';
     ctx.fill();
+    ctx.strokeStyle = '#22d3ee';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    if (Number.isFinite(current.rot)) {
+      const radians = (current.rot * Math.PI) / 180;
+      const tipX = cx + Math.sin(radians) * 18;
+      const tipY = cy - Math.cos(radians) * 18;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(tipX, tipY);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   /**

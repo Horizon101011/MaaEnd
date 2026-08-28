@@ -201,7 +201,7 @@ export function getZiplineFrames() {
  *
  * @param {{zone_id:number, start:number[], goal:number[], snap_radius?:number, floor_y?:?number,
  *   goal_deck_y?:?number}} req
- * @returns {Promise<{ok:boolean, points?:number[][], segment_breaks?:number[], cost?:number,
+ * @returns {Promise<{ok:boolean, points?:number[][], segment_breaks?:number[], cost?:number, debug?:Object,
  *   blind_start?:?{entry:number[], distance:number, reason:string},
  *   blind_target?:?{reached:number[], gap:number, reason:string},
  *   off_mesh?:{start:?OffMeshProbe, goal:?OffMeshProbe}, error?:string}>}
@@ -214,6 +214,28 @@ export function postRoute(req) {
     snap_radius: req.snap_radius === undefined ? 5.0 : req.snap_radius,
     floor_y: req.floor_y === undefined ? null : req.floor_y,
     goal_deck_y: req.goal_deck_y === undefined ? null : req.goal_deck_y,
+  });
+}
+
+/**
+ * Expand a complete MapNavigator request with the runtime planner. Unlike
+ * {@link postRoute}, this preserves global route boundaries and zipline semantics.
+ *
+ * @param {{position:number[], position_zone:string, custom_action_param:Object}} req
+ * @returns {Promise<{ok:boolean, stale?:boolean, points?:number[][],
+ *   walk_segments?:number[][][], zipline_segments?:Array<Object>,
+ *   diagnostics?:Array<Object>, expanded_waypoints?:number, zipline?:Object, error?:string,
+ *   failure?:{code:string, message:string, authored_index?:number, zone_id?:string,
+ *     segment_start?:number[], segment_goal?:number[], gap_start?:number[], gap_goal?:number[], gap_distance?:number,
+ *     target?:number[],
+ *     target_tier?:string, target_deck_y?:number,
+ *     route_status?:string, route_error?:string}}>}
+ */
+export function postRoutePreview(req) {
+  return sendJson('/api/route-preview', {
+    position: req.position,
+    position_zone: req.position_zone,
+    custom_action_param: req.custom_action_param,
   });
 }
 
@@ -500,7 +522,7 @@ export class NavTestSocket extends SessionSocket {
   /**
    * Open the session and walk `route` as soon as the game is connected.
    * @param {Object} sessionConfig `{kind:'win32'|'adb'|..., win32?, adb?}`
-   * @param {{path: Array, exported: boolean, assert_target: ?Object}} route see {@link NavTestSocket#arm}
+   * @param {{path: Array, exported: boolean, zip?: boolean, assert_target: ?Object}} route see {@link NavTestSocket#arm}
    * @returns {void}
    */
   start(sessionConfig, route) {
@@ -511,7 +533,7 @@ export class NavTestSocket extends SessionSocket {
    * Load what F3 (and the next `run`) will run. `exported` false means editor waypoints
    * the backend still has to export, true means ready pipeline nodes. `assert_target`
    * `{zone_id, target:[x,y,w,h]}` runs the assert rect instead and wins over `path`.
-   * @param {{path: Array, exported: boolean, assert_target: ?Object}} route
+   * @param {{path: Array, exported: boolean, zip?: boolean, assert_target: ?Object}} route
    * @returns {void}
    */
   arm(route) {
@@ -523,11 +545,12 @@ export class NavTestSocket extends SessionSocket {
     this._send({ type: 'run', ...this._route(route) });
   }
 
-  /** @returns {{path: Array, exported: boolean, assert_target: ?Object}} */
+  /** @returns {{path: Array, exported: boolean, zip: boolean, assert_target: ?Object}} */
   _route(route) {
     return {
       path: (route && route.path) || [],
       exported: !!(route && route.exported),
+      zip: !!(route && route.zip),
       assert_target: (route && route.assert_target) || null,
     };
   }

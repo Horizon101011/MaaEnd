@@ -816,7 +816,7 @@ std::optional<std::vector<WorldPoint>> routeWindow(
             return vs;
         }
         const int64_t v = atDeck(vs, *goal_deck);
-        return v >= 0 ? std::vector<int64_t> { v } : std::vector<int64_t> { };
+        return v >= 0 ? std::vector<int64_t> { v } : std::vector<int64_t> {};
     };
 
     const auto nearGoal = [&](const std::vector<uint8_t>& use, const Mask& cells) -> std::pair<std::optional<CellPt>, double> {
@@ -882,7 +882,7 @@ std::optional<std::vector<WorldPoint>> routeWindow(
         const int64_t start_span = atSeedLayer(pick(start_cell, use));
         const std::vector<int64_t> goal_spans = goalsOf(pick(goal_cell, use));
         if (start_span < 0 || goal_spans.empty()) {
-            return std::optional<ReachGap> { };
+            return std::optional<ReachGap> {};
         }
         const std::vector<uint8_t> start_reach = topologyReach(st3, use, info.cidx, cells, { start_span }, faces, false);
         const std::vector<uint8_t> goal_reach = topologyReach(st3, use, info.cidx, cells, goal_spans, faces, true);

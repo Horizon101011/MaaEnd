@@ -61,7 +61,7 @@ struct QueryParam
     std::vector<double> goal_deck_y;
     std::vector<double> position;
     std::string position_zone;
-    json::value custom_action_param = json::object { };
+    json::value custom_action_param = json::object {};
     std::string out_file;
 
     MEO_JSONIZATION(
@@ -373,8 +373,12 @@ json::object BuildRoute(QueryContext& context, const QueryParam& param)
         points.emplace_back(json::array { p.x, p.y });
     }
     json::object debug {
-        { "window", json::object { { "x0", plan.debug.x0 }, { "y0", plan.debug.y0 }, { "nx", plan.debug.nx },
-                                    { "ny", plan.debug.ny }, { "cell_size", plan.debug.cell_size } } },
+        { "window",
+          json::object { { "x0", plan.debug.x0 },
+                         { "y0", plan.debug.y0 },
+                         { "nx", plan.debug.nx },
+                         { "ny", plan.debug.ny },
+                         { "cell_size", plan.debug.cell_size } } },
         { "astar_cells", json::array() },
         { "rerouted_points", json::array() },
         { "string_pull_points", json::array() },
@@ -385,28 +389,56 @@ json::object BuildRoute(QueryContext& context, const QueryParam& param)
         { "planned_points", json::array() },
         { "warnings", json::array() },
     };
-    for (const auto& p : plan.debug.astar_cells) debug["astar_cells"].as_array().emplace_back(json::array { p.x, p.y });
-    for (const auto& p : plan.debug.rerouted_points) debug["rerouted_points"].as_array().emplace_back(json::array { p.x, p.y });
-    for (const auto& p : plan.debug.string_pull_points) debug["string_pull_points"].as_array().emplace_back(json::array { p.x, p.y });
-    for (const auto& p : plan.debug.assembled_points) debug["assembled_points"].as_array().emplace_back(json::array { p.x, p.y });
-    for (const auto& p : plan.debug.loop_fixed_points) debug["loop_fixed_points"].as_array().emplace_back(json::array { p.x, p.y });
-    for (const auto& p : plan.debug.slim_points) debug["slim_points"].as_array().emplace_back(json::array { p.x, p.y });
-    for (const auto& p : plan.debug.widened_points) debug["widened_points"].as_array().emplace_back(json::array { p.x, p.y });
-    for (const auto& p : plan.debug.planned_points) debug["planned_points"].as_array().emplace_back(json::array { p.x, p.y });
-    for (const auto& warning : plan.debug.warnings) debug["warnings"].as_array().emplace_back(warning);
+    for (const auto& p : plan.debug.astar_cells) {
+        debug["astar_cells"].as_array().emplace_back(json::array { p.x, p.y });
+    }
+    for (const auto& p : plan.debug.rerouted_points) {
+        debug["rerouted_points"].as_array().emplace_back(json::array { p.x, p.y });
+    }
+    for (const auto& p : plan.debug.string_pull_points) {
+        debug["string_pull_points"].as_array().emplace_back(json::array { p.x, p.y });
+    }
+    for (const auto& p : plan.debug.assembled_points) {
+        debug["assembled_points"].as_array().emplace_back(json::array { p.x, p.y });
+    }
+    for (const auto& p : plan.debug.loop_fixed_points) {
+        debug["loop_fixed_points"].as_array().emplace_back(json::array { p.x, p.y });
+    }
+    for (const auto& p : plan.debug.slim_points) {
+        debug["slim_points"].as_array().emplace_back(json::array { p.x, p.y });
+    }
+    for (const auto& p : plan.debug.widened_points) {
+        debug["widened_points"].as_array().emplace_back(json::array { p.x, p.y });
+    }
+    for (const auto& p : plan.debug.planned_points) {
+        debug["planned_points"].as_array().emplace_back(json::array { p.x, p.y });
+    }
+    for (const auto& warning : plan.debug.warnings) {
+        debug["warnings"].as_array().emplace_back(warning);
+    }
     const auto ss = context.planner->snap(geom, start, param.snap_radius, floor_y);
     const auto sg = context.planner->snap(geom, goal, param.snap_radius, floor_y);
     json::object snap {
-        { "start", ss ? json::object { { "point", json::array { ss->point.x, ss->point.y } }, { "triangle", ss->triangle },
-                                         { "distance", ss->distance }, { "component", context.planner->componentId(ss->triangle) },
-                                         { "component_size", context.planner->componentSize(ss->triangle) } } : json::value() },
-        { "goal", sg ? json::object { { "point", json::array { sg->point.x, sg->point.y } }, { "triangle", sg->triangle },
-                                       { "distance", sg->distance }, { "component", context.planner->componentId(sg->triangle) },
-                                       { "component_size", context.planner->componentSize(sg->triangle) } } : json::value() },
+        { "start",
+          ss ? json::object { { "point", json::array { ss->point.x, ss->point.y } },
+                              { "triangle", ss->triangle },
+                              { "distance", ss->distance },
+                              { "component", context.planner->componentId(ss->triangle) },
+                              { "component_size", context.planner->componentSize(ss->triangle) } }
+             : json::value() },
+        { "goal",
+          sg ? json::object { { "point", json::array { sg->point.x, sg->point.y } },
+                              { "triangle", sg->triangle },
+                              { "distance", sg->distance },
+                              { "component", context.planner->componentId(sg->triangle) },
+                              { "component_size", context.planner->componentSize(sg->triangle) } }
+             : json::value() },
     };
     debug["snap"] = std::move(snap);
-    debug["connectivity"] = json::object { { "same_component", ss && sg && context.planner->componentId(ss->triangle) == context.planner->componentId(sg->triangle) },
-                                             { "reachable", true } };
+    debug["connectivity"] =
+        json::object { { "same_component",
+                         ss && sg && context.planner->componentId(ss->triangle) == context.planner->componentId(sg->triangle) },
+                       { "reachable", true } };
     return json::object { { "ok", true }, { "points", std::move(points) }, { "cost", plan.length }, { "debug", std::move(debug) } };
 }
 
@@ -489,7 +521,12 @@ json::object BuildRoutePreview(const QueryParam& query)
     mapnavigator::ResetZiplineOutcome();
     std::vector<mapnavigator::Waypoint> expanded;
     std::vector<mapnavigator::NavmeshRouteDiagnostic> diagnostics;
-    if (!mapnavigator::ExpandNavmeshWaypoints(param, position, [] { return false; }, expanded, &diagnostics)) {
+    if (!mapnavigator::ExpandNavmeshWaypoints(
+            param,
+            position,
+            [] { return false; },
+            expanded,
+            &diagnostics)) {
         const mapnavigator::NavmeshExpansionFailure failure = mapnavigator::CurrentNavmeshExpansionFailure();
         json::object result = Fail(failure.message.empty() ? "路线展开失败" : failure.message);
         json::object detail {

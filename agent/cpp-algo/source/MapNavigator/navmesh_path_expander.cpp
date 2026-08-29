@@ -741,11 +741,7 @@ bool AppendBlindTargetFallback(
         const navmesh::BaseNavRouteRequest request =
             BuildRouteRequest(navmesh.pack, state.current_zone, state.navmesh_zone, start, entry->point, {}, {}, goal_floor_y);
         NavmeshRouteDiagnostic diagnostic;
-        const auto route = PlanCorridorRoute(
-            navmesh,
-            request,
-            should_stop,
-            out_diagnostics == nullptr ? nullptr : &diagnostic);
+        const auto route = PlanCorridorRoute(navmesh, request, should_stop, out_diagnostics == nullptr ? nullptr : &diagnostic);
         if (!route.ok() || route.path.points.empty()) {
             continue;
         }
@@ -927,21 +923,13 @@ bool AppendNavmeshWaypoint(
         target.deck_y);
     const auto plan_started_at = std::chrono::steady_clock::now();
     NavmeshRouteDiagnostic route_diagnostic;
-    auto route_result = PlanCorridorRoute(
-        navmesh,
-        request,
-        should_stop,
-        out_diagnostics == nullptr ? nullptr : &route_diagnostic);
+    auto route_result = PlanCorridorRoute(navmesh, request, should_stop, out_diagnostics == nullptr ? nullptr : &route_diagnostic);
     bool start_recovered = false;
     std::string start_recovery_error;
     if (!route_result.ok() && AppendStartRecovery(param, navmesh, request, state, out_path, &start_recovery_error)) {
         request.start = state.route_start;
-        route_diagnostic = { };
-        route_result = PlanCorridorRoute(
-            navmesh,
-            request,
-            should_stop,
-            out_diagnostics == nullptr ? nullptr : &route_diagnostic);
+        route_diagnostic = {};
+        route_result = PlanCorridorRoute(navmesh, request, should_stop, out_diagnostics == nullptr ? nullptr : &route_diagnostic);
         start_recovered = true;
     }
     const int64_t plan_ms =
@@ -966,9 +954,8 @@ bool AppendNavmeshWaypoint(
                 const bool disconnected = route_result.gap_start.has_value() && route_result.gap_goal.has_value();
                 RecordWaypointFailure(
                     disconnected ? "route_disconnected" : "target_deck_unreachable",
-                    disconnected
-                        ? std::format(" 的指定目标面与起点不连通（target_deck_y={:.2f}）：{}", *target.deck_y, route_error)
-                        : std::format(" 无法抵达指定目标面（target_deck_y={:.2f}）：{}", *target.deck_y, route_error),
+                    disconnected ? std::format(" 的指定目标面与起点不连通（target_deck_y={:.2f}）：{}", *target.deck_y, route_error)
+                                 : std::format(" 无法抵达指定目标面（target_deck_y={:.2f}）：{}", *target.deck_y, route_error),
                     waypoint,
                     authored_index,
                     state,
@@ -1129,26 +1116,9 @@ bool AppendGlobalRouteGroup(
 
     const NavmeshExpansionState original_state = state;
     const size_t original_path_size = out_path.size();
-    if (AppendNavmeshWaypoint(
-            param,
-            navmesh,
-            global_target,
-            should_stop,
-            state,
-            out_path,
-            false,
-            target_index - 1,
-            out_diagnostics)) {
+    if (AppendNavmeshWaypoint(param, navmesh, global_target, should_stop, state, out_path, false, target_index - 1, out_diagnostics)) {
         if (endpoint_is_hard && !authored_endpoint.HasPosition()) {
-            if (!AppendAuthoredWaypoint(
-                    param,
-                    navmesh,
-                    authored_endpoint,
-                    end - 1,
-                    should_stop,
-                    state,
-                    out_path,
-                    out_diagnostics)) {
+            if (!AppendAuthoredWaypoint(param, navmesh, authored_endpoint, end - 1, should_stop, state, out_path, out_diagnostics)) {
                 return false;
             }
         }
@@ -1371,7 +1341,7 @@ bool ExpandNavmeshWaypoints(
     std::vector<Waypoint>& out_path,
     std::vector<NavmeshRouteDiagnostic>* out_diagnostics)
 {
-    g_expansion_failure = { };
+    g_expansion_failure = {};
     if (out_diagnostics != nullptr) {
         out_diagnostics->clear();
     }
@@ -1416,8 +1386,8 @@ bool ExpandNavmeshWaypoints(
 
     out_path.clear();
     const bool expanded = needs_global_planning
-                            ? AppendGloballyPlannedRoute(param, *navmesh, should_stop, *state, out_path, out_diagnostics)
-                            : AppendAuthoredRoute(param, *navmesh, param.path, should_stop, *state, out_path, out_diagnostics);
+                              ? AppendGloballyPlannedRoute(param, *navmesh, should_stop, *state, out_path, out_diagnostics)
+                              : AppendAuthoredRoute(param, *navmesh, param.path, should_stop, *state, out_path, out_diagnostics);
     if (!expanded) {
         if (out_diagnostics != nullptr) {
             out_diagnostics->clear();

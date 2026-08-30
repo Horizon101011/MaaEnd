@@ -18,9 +18,9 @@
     },
     "JumpBackOnErrorTestA": {
         "desc": "JumpBack 测试节点 A：进入 B；max_hit 防止返回父层后再次进入 A",
+        "max_hit": 1,
         "recognition": "DirectHit",
         "action": "DoNothing",
-        "max_hit": 1,
         "next": [
             "JumpBackOnErrorTestB"
         ]
@@ -38,18 +38,18 @@
         "desc": "B 的 on_error 结束节点；若执行后没有父层提示，说明错误路径未 JumpBack",
         "recognition": "DirectHit",
         "action": "DoNothing",
+        "next": [],
         "focus": {
             "Node.Action.Starting": "测试结果：B 已进入 on_error，错误路径结束"
-        },
-        "next": []
+        }
     },
     "JumpBackOnErrorTestReturnedToParent": {
         "desc": "父层返回标记；理论上不应执行，因为 B 的 on_error 不会触发 JumpBack",
         "recognition": "DirectHit",
         "action": "DoNothing",
+        "next": [],
         "focus": {
             "Node.Action.Starting": "测试结果：已返回 JumpBackOnErrorTestParent，说明错误路径发生了 JumpBack"
-        },
-        "next": []
+        }
     }
 }

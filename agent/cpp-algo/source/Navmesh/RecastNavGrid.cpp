@@ -1528,9 +1528,10 @@ std::vector<WorldPoint> Slim(
                     candidates.push_back(candidate - 1);
                 }
                 const double local_clearance = swallowed_clearance(candidate + 1, j);
-                const double growth = cfl == nullptr || local_clearance >= 2.0
-                                          ? 1.5
-                                          : local_clearance >= 1.0 ? 1.2 : local_clearance >= 0.5 ? 1.1 : 1.05;
+                const double growth = cfl == nullptr || local_clearance >= 2.0 ? 1.5
+                                      : local_clearance >= 1.0                 ? 1.2
+                                      : local_clearance >= 0.5                 ? 1.1
+                                                                               : 1.05;
                 const size_t next_gap = static_cast<size_t>(std::ceil(static_cast<double>(gap) * growth));
                 if (next_gap <= gap) {
                     break;
@@ -1565,9 +1566,8 @@ std::vector<WorldPoint> Slim(
             const double length = dp[i].length + std::hypot(P[j].x - P[i].x, P[j].y - P[i].y);
             const size_t segments = dp[i].segments + 1;
             const double length_tol = kCostTol * std::max({ 1.0, length, dp[j].length });
-            const bool better =
-                dp[j].segments == std::numeric_limits<size_t>::max() || length < dp[j].length - length_tol
-                || (prefer_fewer_points && std::fabs(length - dp[j].length) <= length_tol && segments < dp[j].segments);
+            const bool better = dp[j].segments == std::numeric_limits<size_t>::max() || length < dp[j].length - length_tol
+                                || (prefer_fewer_points && std::fabs(length - dp[j].length) <= length_tol && segments < dp[j].segments);
             if (better) {
                 dp[j] = { length, segments, i };
             }

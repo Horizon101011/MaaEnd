@@ -749,8 +749,7 @@ bool AppendBlindTargetFallback(
         if (!entry) {
             continue;
         }
-        auto request =
-            BuildRouteRequest(navmesh.pack, state.current_zone, state.navmesh_zone, start, entry->point, {}, {}, goal_floor_y);
+        auto request = BuildRouteRequest(navmesh.pack, state.current_zone, state.navmesh_zone, start, entry->point, {}, {}, goal_floor_y);
         request.exact_slim = param.exact_slim;
         NavmeshRouteDiagnostic diagnostic;
         const auto route = PlanCorridorRoute(navmesh, request, should_stop, out_diagnostics == nullptr ? nullptr : &diagnostic);

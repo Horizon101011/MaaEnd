@@ -19,8 +19,9 @@ on:
     paths:
       - ".github/workflows/sync-and-release.yml"
       - "agent/**"
-      - "tools/build_and_install.py"
+      - "pyproject.toml"
       - "tools/maadeps-download.py"
+      - "tools/setup/**"
 
 permissions:
   contents: write
@@ -117,7 +118,8 @@ jobs:
           go_tree=$(git rev-parse "${candidate_sha}:agent/go-service")
           cpp_tree=$(git rev-parse "${candidate_sha}:agent/cpp-algo")
           maadeps_blob=$(git rev-parse "${candidate_sha}:tools/maadeps-download.py")
-          build_script_blob=$(git rev-parse "${candidate_sha}:tools/build_and_install.py")
+          setup_tree=$(git rev-parse "${candidate_sha}:tools/setup")
+          pyproject_blob=$(git rev-parse "${candidate_sha}:pyproject.toml")
           workflow_blob=$(git rev-parse "${candidate_sha}:.github/workflows/sync-and-release.yml")
 
           build_id=$(
@@ -127,7 +129,8 @@ jobs:
               "go_tree=$go_tree" \
               "cpp_tree=$cpp_tree" \
               "maadeps_blob=$maadeps_blob" \
-              "build_script_blob=$build_script_blob" \
+              "setup_tree=$setup_tree" \
+              "pyproject_blob=$pyproject_blob" \
               "workflow_blob=$workflow_blob" |
               sha256sum |
               cut -c1-24
@@ -146,7 +149,8 @@ jobs:
           echo "go_tree=$go_tree" >> "$GITHUB_OUTPUT"
           echo "cpp_tree=$cpp_tree" >> "$GITHUB_OUTPUT"
           echo "maadeps_blob=$maadeps_blob" >> "$GITHUB_OUTPUT"
-          echo "build_script_blob=$build_script_blob" >> "$GITHUB_OUTPUT"
+          echo "setup_tree=$setup_tree" >> "$GITHUB_OUTPUT"
+          echo "pyproject_blob=$pyproject_blob" >> "$GITHUB_OUTPUT"
           echo "workflow_blob=$workflow_blob" >> "$GITHUB_OUTPUT"
 
       - name: Check existing Agent release
@@ -191,7 +195,8 @@ jobs:
           GO_TREE: ${{steps.build.outputs.go_tree}}
           CPP_TREE: ${{steps.build.outputs.cpp_tree}}
           MAADEPS_BLOB: ${{steps.build.outputs.maadeps_blob}}
-          BUILD_SCRIPT_BLOB: ${{steps.build.outputs.build_script_blob}}
+          SETUP_TREE: ${{steps.build.outputs.setup_tree}}
+          PYPROJECT_BLOB: ${{steps.build.outputs.pyproject_blob}}
           WORKFLOW_BLOB: ${{steps.build.outputs.workflow_blob}}
           MAAFW_VERSION: ${{steps.maafw.outputs.version}}
         run: |
@@ -208,7 +213,8 @@ jobs:
             --arg go_tree "$GO_TREE" \
             --arg cpp_tree "$CPP_TREE" \
             --arg maadeps_blob "$MAADEPS_BLOB" \
-            --arg build_script_blob "$BUILD_SCRIPT_BLOB" \
+            --arg setup_tree "$SETUP_TREE" \
+            --arg pyproject_blob "$PYPROJECT_BLOB" \
             --arg workflow_blob "$WORKFLOW_BLOB" \
             '{
               schemaVersion: 1,
@@ -224,7 +230,8 @@ jobs:
                     goTree: $go_tree,
                     cppTree: $cpp_tree,
                     maadepsBlob: $maadeps_blob,
-                    buildScriptBlob: $build_script_blob,
+                    setupTree: $setup_tree,
+                    pyprojectBlob: $pyproject_blob,
                     workflowBlob: $workflow_blob
                   }
                 }
@@ -247,6 +254,11 @@ jobs:
           cache-dependency-path: |
             agent/go-service/go.mod
             agent/go-service/go.sum
+
+      - name: Install Python JSONC dependency
+        if: steps.release.outputs.ready != 'true'
+        shell: bash
+        run: python -m pip install json5
 
       - name: Cache MaaDeps
         if: steps.release.outputs.ready != 'true'
@@ -284,8 +296,9 @@ jobs:
         env:
           RELEASE_TAG: ${{steps.build.outputs.release_tag}}
           PYTHONIOENCODING: utf-8
+          PYTHONUNBUFFERED: "1"
         run: |
-          python tools/build_and_install.py \
+          python -m tools.setup.build_and_install \
             --cpp-algo \
             --ci \
             --os linux \
@@ -304,7 +317,8 @@ jobs:
           GO_TREE: ${{steps.build.outputs.go_tree}}
           CPP_TREE: ${{steps.build.outputs.cpp_tree}}
           MAADEPS_BLOB: ${{steps.build.outputs.maadeps_blob}}
-          BUILD_SCRIPT_BLOB: ${{steps.build.outputs.build_script_blob}}
+          SETUP_TREE: ${{steps.build.outputs.setup_tree}}
+          PYPROJECT_BLOB: ${{steps.build.outputs.pyproject_blob}}
           WORKFLOW_BLOB: ${{steps.build.outputs.workflow_blob}}
           MAAFW_VERSION: ${{steps.maafw.outputs.version}}
           CANDIDATE_SHA: ${{steps.candidate.outputs.candidate_sha}}
@@ -331,7 +345,8 @@ jobs:
             --arg go_tree "$GO_TREE" \
             --arg cpp_tree "$CPP_TREE" \
             --arg maadeps_blob "$MAADEPS_BLOB" \
-            --arg build_script_blob "$BUILD_SCRIPT_BLOB" \
+            --arg setup_tree "$SETUP_TREE" \
+            --arg pyproject_blob "$PYPROJECT_BLOB" \
             --arg workflow_blob "$WORKFLOW_BLOB" \
             --arg maafw_compat_version "$MAAFW_VERSION" \
             --arg go_sha256 "$go_sha" \
@@ -349,7 +364,8 @@ jobs:
                 go_tree: $go_tree,
                 cpp_tree: $cpp_tree,
                 maadeps_blob: $maadeps_blob,
-                build_script_blob: $build_script_blob,
+                setup_tree: $setup_tree,
+                pyproject_blob: $pyproject_blob,
                 workflow_blob: $workflow_blob
               },
               maafw_compat_version: $maafw_compat_version,

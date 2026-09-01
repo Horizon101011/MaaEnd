@@ -155,6 +155,7 @@ class MapNavigatorApp {
         };
         this.showLivePath = this.navDebug.live;
         this._syncNavDebugControls();
+        this._syncNavTimingLabels();
         this.els.navDebugOptions.open = false;
         /** @type {Array<{x:number,y:number,rot:?number}>} measured points in base px. */
         this.livePathBase = [];
@@ -283,6 +284,7 @@ class MapNavigatorApp {
             btnEditPlanClear: $("btn-edit-plan-clear"),
             editPlanStartLabel: $("edit-plan-start-label"),
             chkEditZipline: $("chk-edit-zipline"),
+            chkEditExactSlim: $("chk-edit-exact-slim"),
             btnCopyAssert: $("btn-copy-assert"),
             assertCopyFormat: $("assert-copy-format"),
             btnImport: $("btn-import"),
@@ -848,6 +850,23 @@ class MapNavigatorApp {
         this.showLivePath = this.navDebug.live;
     }
 
+    /** Show the cumulative planner time for every visible diagnostic stage. */
+    _syncNavTimingLabels() {
+        const diagnostics = (this.quickRouteTestRoute || this.editRoute)?.diagnostics || [];
+        const totals = new Map();
+        for (const diagnostic of diagnostics) {
+            for (const [stage, value] of Object.entries(diagnostic.timing_ms || {})) {
+                if (Number.isFinite(value)) totals.set(stage, (totals.get(stage) || 0) + value);
+            }
+        }
+        const count = diagnostics.length;
+        for (const entry of document.querySelectorAll("[data-nav-timing]")) {
+            const value = totals.get(entry.dataset.navTiming);
+            entry.textContent = Number.isFinite(value) ? `${value >= 10 ? value.toFixed(1) : value.toFixed(2)} ms` : "—";
+            entry.title = count > 0 ? `当前预览的 ${count} 条步行规划腿合计耗时` : "尚未规划";
+        }
+    }
+
     /** Attach every DOM event listener (buttons, combos, tabs, canvas, keyboard). @returns {void} */
     _wireEvents() {
         const e = this.els;
@@ -874,6 +893,11 @@ class MapNavigatorApp {
         });
         e.chkEditZipline.addEventListener("change", () => {
             this._syncCopyButtonLabels();
+            if (this.navtest) this.navtest.routeChanged();
+            if (this.quickRouteTest?.goal) this._calculateQuickRouteTest();
+            else if (this.editRoute) this._calculateEditPreview();
+        });
+        e.chkEditExactSlim.addEventListener("change", () => {
             if (this.navtest) this.navtest.routeChanged();
             if (this.quickRouteTest?.goal) this._calculateQuickRouteTest();
             else if (this.editRoute) this._calculateEditPreview();
@@ -3438,6 +3462,7 @@ class MapNavigatorApp {
             this.editRouteFailure ||
             this._hasQuickRouteTest()
         );
+        this._syncNavTimingLabels();
     }
 
     /** Drop every quick-test artifact without touching authored or manual-preview data. */
@@ -3631,6 +3656,7 @@ class MapNavigatorApp {
     async _calculateQuickRouteTest() {
         const built = buildQuickRouteTestRequest(this.quickRouteTest, {
             zip: this.els.chkEditZipline.checked,
+            exact_slim: this.els.chkEditExactSlim.checked,
         });
         if (!built.ok) {
             setStatus(built.error, "#f59e0b");
@@ -3698,6 +3724,7 @@ class MapNavigatorApp {
             const exported = await exportPath(plan.targets);
             const customActionParam = {path: exported.nodes || []};
             if (this.els.chkEditZipline.checked) customActionParam.zip = true;
+            if (this.els.chkEditExactSlim.checked) customActionParam.exact_slim = true;
             const result = await postRoutePreview({
                 position: plan.position,
                 position_zone: plan.positionZone,
@@ -4585,7 +4612,7 @@ class MapNavigatorApp {
 
     /** Keep each copy button's label aligned with its selected output format. @returns {void} */
     _syncCopyButtonLabels() {
-        this.els.btnCopyPath.textContent = this.els.chkEditZipline.checked ? "复制完整参数" : "复制路径";
+        this.els.btnCopyPath.textContent = this.els.chkEditZipline.checked || this.els.chkEditExactSlim.checked ? "复制完整参数" : "复制路径";
         this.els.btnCopyAssert.textContent =
             this.els.assertCopyFormat.value === COPY_FORMAT_COORDINATES ? "复制坐标" : "复制断言";
     }
@@ -4598,9 +4625,12 @@ class MapNavigatorApp {
         }
         try {
             const result = await exportPath(this.state.points);
-            if (this.els.chkEditZipline.checked) {
-                await this._copyText(JSON.stringify({path: result.nodes, zip: true}, null, 4));
-                setStatus("MapNavigator 完整参数已复制到剪贴板（已启用滑索）", "#10b981");
+            if (this.els.chkEditZipline.checked || this.els.chkEditExactSlim.checked) {
+                const param = {path: result.nodes};
+                if (this.els.chkEditZipline.checked) param.zip = true;
+                if (this.els.chkEditExactSlim.checked) param.exact_slim = true;
+                await this._copyText(JSON.stringify(param, null, 4));
+                setStatus("MapNavigator 完整参数已复制到剪贴板", "#10b981");
             } else {
                 await this._copyText(result.text);
                 setStatus("MapNavigator path 已复制到剪贴板", "#10b981");
@@ -4647,7 +4677,12 @@ class MapNavigatorApp {
         if (this.state.mode !== Mode.EDIT) {
             return {path: [], exported: false, zip: false, assert_target: null};
         }
-        return {path: this.state.points, exported: false, zip: this.els.chkEditZipline.checked};
+        return {
+            path: this.state.points,
+            exported: false,
+            zip: this.els.chkEditZipline.checked,
+            exact_slim: this.els.chkEditExactSlim.checked,
+        };
     }
 
 

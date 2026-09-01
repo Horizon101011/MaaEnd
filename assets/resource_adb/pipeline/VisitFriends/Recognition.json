@@ -67,5 +67,34 @@
             27,
             83
         ]
+    },
+    "VisitFriendsRecognitionItemNameByEnterButtonForScrollAfterVisit": {
+        "desc": "ADB拜访返回滚动专用：直接以进船按钮为锚识别好友名，不依赖线索交换图标",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": "VisitFriendsRecognitionItemEnterButton",
+                // ADB拜访返回后好友信息区域整体左移 83 px：-927 - 83 = -1010
+                "roi_offset": [
+                    -1010,
+                    -38,
+                    261,
+                    5
+                ],
+                "expected": [
+                    ".*#.*"
+                ],
+                "order_by": "Vertical"
+            }
+        }
+    },
+    "VisitFriendsRecognitionItemWithNameForScrollAfterVisit": {
+        "desc": "ADB拜访返回滚动专用 And：进船按钮 ∧ 好友名，不检查线索交换",
+        "recognition": "And",
+        "all_of": [
+            "VisitFriendsRecognitionItemEnterButton",
+            "VisitFriendsRecognitionItemNameByEnterButtonForScrollAfterVisit"
+        ],
+        "box_index": 1
     }
 }

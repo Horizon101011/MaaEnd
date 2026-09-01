@@ -1,0 +1,33 @@
+{
+    "VisitFriendsMenuScanRemarkFallback": {
+        "custom_action_param": {
+            "patch": {
+                // RemarkFallback 会重新打开初始好友列表，需要恢复初始布局参数
+                "VisitFriendsRecognitionItemOnline": {
+                    "roi_offset": [
+                        -948,
+                        23,
+                        230,
+                        46
+                    ]
+                },
+                "VisitFriendsRecognitionItemEnterButtonByName": {
+                    "roi_offset": [
+                        802,
+                        -8,
+                        27,
+                        83
+                    ]
+                },
+                "VisitFriendsRecognitionItemEnterButtonByNameRemark": {
+                    "roi_offset": [
+                        802,
+                        -8,
+                        27,
+                        83
+                    ]
+                }
+            }
+        }
+    }
+}

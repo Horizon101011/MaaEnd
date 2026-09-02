@@ -9,9 +9,9 @@
     },
     "VisitFriendsRecognitionItemOnline": {
         "roi_offset": [
-            -948,
+            -1031,
             23,
-            230,
+            313,
             46
         ]
     },
@@ -43,10 +43,11 @@
         "recognition": {
             "param": {
                 // 等价于 ClueExchange(相对 EnterButton [29,-14,2,0]) 再叠 Name 偏移 [-956,-24,259,5]
+                // 由于布局偏移，在原有基础上左扩83px，x-=83, w+=83
                 "roi_offset": [
-                    -927,
+                    -1010,
                     -38,
-                    261,
+                    344,
                     5
                 ]
             }
@@ -56,7 +57,7 @@
         "roi_offset": [
             802,
             -8,
-            27,
+            110,
             83
         ]
     },
@@ -64,37 +65,8 @@
         "roi_offset": [
             802,
             -8,
-            27,
+            110,
             83
         ]
-    },
-    "VisitFriendsRecognitionItemNameByEnterButtonForScrollAfterVisit": {
-        "desc": "ADB拜访返回滚动专用：直接以进船按钮为锚识别好友名，不依赖线索交换图标",
-        "recognition": {
-            "type": "OCR",
-            "param": {
-                "roi": "VisitFriendsRecognitionItemEnterButton",
-                // ADB拜访返回后好友信息区域整体左移 83 px：-927 - 83 = -1010
-                "roi_offset": [
-                    -1010,
-                    -38,
-                    261,
-                    5
-                ],
-                "expected": [
-                    ".*#.*"
-                ],
-                "order_by": "Vertical"
-            }
-        }
-    },
-    "VisitFriendsRecognitionItemWithNameForScrollAfterVisit": {
-        "desc": "ADB拜访返回滚动专用 And：进船按钮 ∧ 好友名，不检查线索交换",
-        "recognition": "And",
-        "all_of": [
-            "VisitFriendsRecognitionItemEnterButton",
-            "VisitFriendsRecognitionItemNameByEnterButtonForScrollAfterVisit"
-        ],
-        "box_index": 1
     }
 }

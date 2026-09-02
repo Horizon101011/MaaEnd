@@ -779,10 +779,10 @@ std::vector<TransferGridHint> DiscoverTransferGridHints(const cv::Mat& crop, boo
         for (const auto& hypothesis : broad) {
             // broad 的宽 pitch 范围只负责召回；候选数量仍须能按正式 pitch 落入当前单侧区域。
             if ((!structural_rank || !broad_has_texture_evidence
-                  || hypothesis.foreground_texture_coverage >= kMinimumSparseTransferTextureCoverage)
+                 || hypothesis.foreground_texture_coverage >= kMinimumSparseTransferTextureCoverage)
                 && hypothesis.columns <= std::min(kTransferMaximumColumns, maximum_columns)
-                && hypothesis.rows <= std::min(kBaseTransferProfile.maximum_rows, maximum_rows)
-                && hypothesis.rect.x >= region.x && hypothesis.rect.x + hypothesis.rect.width <= region.x + region.width) {
+                && hypothesis.rows <= std::min(kBaseTransferProfile.maximum_rows, maximum_rows) && hypothesis.rect.x >= region.x
+                && hypothesis.rect.x + hypothesis.rect.width <= region.x + region.width) {
                 candidates.push_back(to_hint(hypothesis, region, 0));
             }
         }

@@ -105,8 +105,7 @@ std::optional<RegularAxisFit> FitCandidate(
         return std::nullopt;
     }
     const double observed_pitch = numerator / denominator;
-    if (observed_pitch < pitch_range.first - observed_pitch_tolerance
-        || observed_pitch > pitch_range.second + observed_pitch_tolerance) {
+    if (observed_pitch < pitch_range.first - observed_pitch_tolerance || observed_pitch > pitch_range.second + observed_pitch_tolerance) {
         return std::nullopt;
     }
     // 观测间距允许像素量化误差，但输出轴必须保持在正式 pitch 范围内。

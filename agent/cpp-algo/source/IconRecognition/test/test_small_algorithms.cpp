@@ -866,9 +866,7 @@ void TestTransferGridRejectsBroadOvercapacityPhase()
     const auto hints = iconrecognition::detail::DiscoverTransferGridHints(image, true);
     Check(hints.size() == 1, "single transfer panel must produce one grid hint");
     Check(hints.front().x_starts.size() == kFormalColumns, "broad search must not add a column that cannot fit the formal pitch");
-    Check(
-        std::abs(hints.front().x_starts.front() - kFormalPhaseX) <= 1,
-        "transfer hint must preserve the five-column formal phase");
+    Check(std::abs(hints.front().x_starts.front() - kFormalPhaseX) <= 1, "transfer hint must preserve the five-column formal phase");
 }
 
 void TestPortStoragerWideRoiUsesStablePanelPartitions()
@@ -1138,7 +1136,9 @@ void TestRegularLatticeUsesObservedPitchTolerance()
     const auto fit = iconrecognition::detail::FitRegularAxis(quantized, 5, { 69.0, 69.0 }, 69.0, 1.0);
     Check(fit.has_value(), "fixed pitch must accept one-pixel quantization with observed tolerance");
     Check(std::abs(fit->pitch - 69.0) <= 1e-9, "observed tolerance must not change the formal output pitch");
-    Check(iconrecognition::detail::ProjectRegularAxis(*fit) == std::vector<int> { 617, 686, 755, 824, 893 }, "fixed pitch projection must remain regular");
+    Check(
+        iconrecognition::detail::ProjectRegularAxis(*fit) == std::vector<int> { 617, 686, 755, 824, 893 },
+        "fixed pitch projection must remain regular");
 }
 
 void TestRegularLatticeRejectsAccumulatingResiduals()

@@ -175,6 +175,7 @@ std::vector<TrustedRarityStrip> DetectTrustedRarityStrips(const cv::Mat& image, 
                 int y = 0;
                 HorizontalRun run;
             };
+
             std::vector<CoreRun> core_runs;
             for (int y = component_box.y; y < component_box.y + component_box.height; ++y) {
                 if (const auto run = LongestHorizontalRun(mask, y, component_box.x, component_box.x + component_box.width)) {

@@ -1,4 +1,4 @@
-name: Sync upstream and release agents
+name: Sync upstream and release agents and models
 
 on:
   schedule:
@@ -19,6 +19,7 @@ on:
     paths:
       - ".github/workflows/sync-and-release.yml"
       - "agent/**"
+      - "assets/resource/model"
       - "pyproject.toml"
       - "tools/maadeps-download.py"
       - "tools/setup/**"
@@ -105,6 +106,294 @@ jobs:
       - name: Initialize submodules
         shell: bash
         run: git submodule update --init --recursive
+
+      - name: Calculate Model release metadata
+        id: model
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          candidate_sha=${{steps.candidate.outputs.candidate_sha}}
+          model_commit=$(git rev-parse "${candidate_sha}:assets/resource/model")
+          checked_out_commit=$(git -C assets/resource/model rev-parse HEAD)
+          if [[ "$checked_out_commit" != "$model_commit" ]]; then
+            echo "Model submodule checkout does not match candidate gitlink: expected=$model_commit actual=$checked_out_commit" >&2
+            exit 1
+          fi
+
+          model_id=${model_commit:0:24}
+          release_tag="models-${model_id}"
+          bundle="maaend-models-${model_id}.tar.gz"
+          checksum="${bundle}.sha256"
+          manifest="maaend-models-${model_id}.manifest.json"
+          repository=$(git config -f .gitmodules --get 'submodule.assets/resource/model.url')
+
+          echo "model_commit=$model_commit" >> "$GITHUB_OUTPUT"
+          echo "model_id=$model_id" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "bundle=$bundle" >> "$GITHUB_OUTPUT"
+          echo "checksum=$checksum" >> "$GITHUB_OUTPUT"
+          echo "manifest=$manifest" >> "$GITHUB_OUTPUT"
+          echo "repository=$repository" >> "$GITHUB_OUTPUT"
+
+      - name: Check existing Model release
+        id: model_release
+        shell: bash
+        env:
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          RELEASE_TAG: ${{steps.model.outputs.release_tag}}
+          BUNDLE: ${{steps.model.outputs.bundle}}
+          CHECKSUM: ${{steps.model.outputs.checksum}}
+          MANIFEST: ${{steps.model.outputs.manifest}}
+        run: |
+          set -euo pipefail
+
+          release_info=$(gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,assets 2>/dev/null || true)
+
+          ready=false
+          if [[ -n "$release_info" ]] && jq -e \
+            --arg bundle "$BUNDLE" \
+            --arg checksum "$CHECKSUM" \
+            --arg manifest "$MANIFEST" \
+            '(.isDraft == false)
+              and ([.assets[].name] | index($bundle) != null)
+              and ([.assets[].name] | index($checksum) != null)
+              and ([.assets[].name] | index($manifest) != null)' \
+            <<< "$release_info" >/dev/null; then
+            ready=true
+          fi
+
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+
+      - name: Record Model release lock in source
+        shell: bash
+        env:
+          MODEL_COMMIT: ${{steps.model.outputs.model_commit}}
+          RELEASE_TAG: ${{steps.model.outputs.release_tag}}
+          BUNDLE: ${{steps.model.outputs.bundle}}
+          CHECKSUM: ${{steps.model.outputs.checksum}}
+          MANIFEST: ${{steps.model.outputs.manifest}}
+          MODEL_REPOSITORY: ${{steps.model.outputs.repository}}
+        run: |
+          set -euo pipefail
+
+          mkdir -p .mwu
+          jq -n \
+            --arg model_commit "$MODEL_COMMIT" \
+            --arg release_tag "$RELEASE_TAG" \
+            --arg bundle "$BUNDLE" \
+            --arg checksum "$CHECKSUM" \
+            --arg manifest "$MANIFEST" \
+            --arg repository "$MODEL_REPOSITORY" \
+            '{
+              schemaVersion: 1,
+              modelCommit: $model_commit,
+              releaseTag: $release_tag,
+              bundle: $bundle,
+              checksum: $checksum,
+              manifest: $manifest,
+              source: {
+                repository: $repository,
+                submodulePath: "assets/resource/model"
+              }
+            }' > .mwu/model-release.json.new
+          mv .mwu/model-release.json.new .mwu/model-release.json
+
+      - name: Package Models
+        if: steps.model_release.outputs.ready != 'true'
+        shell: bash
+        env:
+          MODEL_COMMIT: ${{steps.model.outputs.model_commit}}
+          RELEASE_TAG: ${{steps.model.outputs.release_tag}}
+          BUNDLE: ${{steps.model.outputs.bundle}}
+          CHECKSUM: ${{steps.model.outputs.checksum}}
+          MANIFEST: ${{steps.model.outputs.manifest}}
+          MODEL_REPOSITORY: ${{steps.model.outputs.repository}}
+          CANDIDATE_SHA: ${{steps.candidate.outputs.candidate_sha}}
+          UPSTREAM_SHA: ${{steps.candidate.outputs.upstream_sha}}
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist
+          git -C assets/resource/model archive \
+            --format=tar.gz \
+            -o "$GITHUB_WORKSPACE/dist/$BUNDLE" \
+            "$MODEL_COMMIT"
+
+          bundle_sha=$(sha256sum "dist/$BUNDLE" | cut -d ' ' -f1)
+          bundle_size=$(stat -c '%s' "dist/$BUNDLE")
+
+          jq -n \
+            --arg model_commit "$MODEL_COMMIT" \
+            --arg release_tag "$RELEASE_TAG" \
+            --arg candidate_commit "$CANDIDATE_SHA" \
+            --arg upstream_commit "$UPSTREAM_SHA" \
+            --arg repository "$MODEL_REPOSITORY" \
+            --arg bundle "$BUNDLE" \
+            --arg bundle_sha256 "$bundle_sha" \
+            --argjson bundle_size "$bundle_size" \
+            '{
+              schema_version: 1,
+              model_commit: $model_commit,
+              release_tag: $release_tag,
+              candidate_commit: $candidate_commit,
+              upstream_commit: $upstream_commit,
+              source: {
+                repository: $repository,
+                submodule_path: "assets/resource/model"
+              },
+              bundle: {
+                name: $bundle,
+                sha256: $bundle_sha256,
+                size: $bundle_size
+              }
+            }' > "dist/$MANIFEST"
+
+          printf '%s  %s\n' "$bundle_sha" "$BUNDLE" > "dist/$CHECKSUM"
+
+      - name: Publish Model release
+        if: steps.model_release.outputs.ready != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          MODEL_COMMIT: ${{steps.model.outputs.model_commit}}
+          MODEL_ID: ${{steps.model.outputs.model_id}}
+          RELEASE_TAG: ${{steps.model.outputs.release_tag}}
+          BUNDLE: ${{steps.model.outputs.bundle}}
+          CHECKSUM: ${{steps.model.outputs.checksum}}
+          MANIFEST: ${{steps.model.outputs.manifest}}
+          CANDIDATE_SHA: ${{steps.candidate.outputs.candidate_sha}}
+          UPSTREAM_SHA: ${{steps.candidate.outputs.upstream_sha}}
+        run: |
+          set -euo pipefail
+
+          if ! git ls-remote --exit-code --tags origin \
+            "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            git tag -a "$RELEASE_TAG" "$CANDIDATE_SHA" \
+              -m "MaaEnd Models $MODEL_ID"
+            git push origin "refs/tags/$RELEASE_TAG"
+          fi
+
+          release_info=$(gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json isDraft 2>/dev/null || true)
+
+          if [[ -z "$release_info" ]]; then
+            notes=$(printf '%s\n\n%s\n%s\n' \
+              "Automated MaaEnd model package." \
+              "- Upstream commit: $UPSTREAM_SHA" \
+              "- Model commit: $MODEL_COMMIT")
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --draft \
+              --prerelease \
+              --latest=false \
+              --title "MaaEnd Models $MODEL_ID" \
+              --notes "$notes"
+          fi
+
+          gh release upload "$RELEASE_TAG" \
+            "dist/$BUNDLE" \
+            "dist/$CHECKSUM" \
+            "dist/$MANIFEST" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+          is_draft=$(gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json isDraft \
+            --jq .isDraft)
+          if [[ "$is_draft" == "true" ]]; then
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --draft=false
+          fi
+
+      - name: Verify Model release
+        shell: bash
+        env:
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          MODEL_COMMIT: ${{steps.model.outputs.model_commit}}
+          RELEASE_TAG: ${{steps.model.outputs.release_tag}}
+          BUNDLE: ${{steps.model.outputs.bundle}}
+          CHECKSUM: ${{steps.model.outputs.checksum}}
+          MANIFEST: ${{steps.model.outputs.manifest}}
+        run: |
+          set -euo pipefail
+
+          gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,assets |
+            jq -e \
+              --arg bundle "$BUNDLE" \
+              --arg checksum "$CHECKSUM" \
+              --arg manifest "$MANIFEST" \
+              '(.isDraft == false)
+                and ([.assets[].name] | index($bundle) != null)
+                and ([.assets[].name] | index($checksum) != null)
+                and ([.assets[].name] | index($manifest) != null)'
+
+          verify_dir=$(mktemp -d)
+          trap 'rm -rf "$verify_dir"' EXIT
+          gh release download "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir "$verify_dir" \
+            --pattern "$CHECKSUM" \
+            --pattern "$MANIFEST"
+
+          jq -e \
+            --arg model_commit "$MODEL_COMMIT" \
+            --arg release_tag "$RELEASE_TAG" \
+            --arg bundle "$BUNDLE" \
+            '(.schema_version == 1)
+              and (.model_commit == $model_commit)
+              and (.release_tag == $release_tag)
+              and (.source.submodule_path == "assets/resource/model")
+              and (.bundle.name == $bundle)
+              and (.bundle.sha256 | type == "string")
+              and (.bundle.size | type == "number")' \
+            "$verify_dir/$MANIFEST"
+
+          checksum_sha=$(awk 'NR == 1 {print $1}' "$verify_dir/$CHECKSUM")
+          checksum_name=$(awk 'NR == 1 {print $2}' "$verify_dir/$CHECKSUM")
+          manifest_sha=$(jq -r '.bundle.sha256' "$verify_dir/$MANIFEST")
+          if [[ "$checksum_sha" != "$manifest_sha" || "$checksum_name" != "$BUNDLE" ]]; then
+            echo "Model checksum metadata does not match manifest" >&2
+            exit 1
+          fi
+
+      - name: Verify published Model payload
+        if: steps.model_release.outputs.ready != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          RELEASE_TAG: ${{steps.model.outputs.release_tag}}
+          BUNDLE: ${{steps.model.outputs.bundle}}
+          CHECKSUM: ${{steps.model.outputs.checksum}}
+          MANIFEST: ${{steps.model.outputs.manifest}}
+        run: |
+          set -euo pipefail
+
+          verify_dir=$(mktemp -d)
+          trap 'rm -rf "$verify_dir"' EXIT
+          gh release download "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir "$verify_dir" \
+            --pattern "$BUNDLE" \
+            --pattern "$CHECKSUM" \
+            --pattern "$MANIFEST"
+
+          (cd "$verify_dir" && sha256sum --check "$CHECKSUM")
+          tar -tzf "$verify_dir/$BUNDLE" >/dev/null
+          bundle_size=$(stat -c '%s' "$verify_dir/$BUNDLE")
+          manifest_size=$(jq -r '.bundle.size' "$verify_dir/$MANIFEST")
+          if [[ "$bundle_size" != "$manifest_size" ]]; then
+            echo "Published Model bundle size does not match manifest" >&2
+            exit 1
+          fi
 
       - name: Calculate Agent build ID
         id: build
@@ -505,15 +794,15 @@ jobs:
               and (.files["cpp-algo"].sha256 | type == "string")' \
             "$verify_dir/$MANIFEST"
 
-      - name: Commit verified Agent release lock
+      - name: Commit verified release locks
         id: final
         shell: bash
         run: |
           set -euo pipefail
 
-          git add .mwu/agent-release.json
+          git add .mwu/agent-release.json .mwu/model-release.json
           if ! git diff --cached --quiet; then
-            git commit -m "chore: update Agent release lock [skip ci]"
+            git commit -m "chore: update runtime release locks [skip ci]"
           fi
           echo "candidate_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
@@ -562,3 +851,42 @@ jobs:
               --yes \
               --cleanup-tag
           done
+
+      - name: Prune old Model releases
+        shell: bash
+        env:
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        run: |
+          set -euo pipefail
+
+          prefix="models-"
+          releases=$(gh release list \
+            --repo "$GITHUB_REPOSITORY" \
+            --limit 1000 \
+            --exclude-drafts \
+            --json tagName,publishedAt)
+
+          mapfile -t stale_tags < <(
+            jq -r \
+              --arg prefix "$prefix" \
+              'map(select(.tagName | startswith($prefix)))
+               | sort_by(.publishedAt)
+               | reverse
+               | .[5:]
+               | .[].tagName' \
+              <<< "$releases"
+          )
+
+          if (( ${#stale_tags[@]} == 0 )); then
+            echo "No stale Model releases to prune"
+            exit 0
+          fi
+
+          for tag in "${stale_tags[@]}"; do
+            echo "Deleting old Model release and tag: $tag"
+            gh release delete "$tag" \
+              --repo "$GITHUB_REPOSITORY" \
+              --yes \
+              --cleanup-tag
+          done
+

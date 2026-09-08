@@ -62,7 +62,7 @@ struct QueryParam
     std::vector<double> goal_deck_y;
     std::vector<double> position;
     std::string position_zone;
-    json::value custom_action_param = json::object { };
+    json::value custom_action_param = json::object {};
     std::string zipline_account_id;
     std::string out_file;
 
@@ -117,7 +117,7 @@ QueryContext* AcquireContext(const std::string& configured_path, std::string& er
         return found->second.get();
     }
 
-    auto loaded = navmesh::LoadBaseNavPack(key, { });
+    auto loaded = navmesh::LoadBaseNavPack(key, {});
     if (!loaded.ok()) {
         error = loaded.message.empty() ? navmesh::ToString(loaded.status) : loaded.message;
         LogError << "load navmesh failed" << VAR(key) << VAR(error);
@@ -244,7 +244,7 @@ json::value ProbeOffMesh(
     const json::value& budget)
 {
     if (planner.snap(geom_zone_id, point, snap_radius, floor_y).has_value()) {
-        return { };
+        return {};
     }
     const auto nearest = planner.snap(geom_zone_id, point, kOffMeshSearchRadius, floor_y);
     if (!nearest) {
@@ -565,7 +565,12 @@ json::object BuildRoutePreview(const QueryParam& query)
     mapnavigator::ResetZiplineOutcome();
     std::vector<mapnavigator::Waypoint> expanded;
     std::vector<mapnavigator::NavmeshRouteDiagnostic> diagnostics;
-    if (!mapnavigator::ExpandNavmeshWaypoints(param, position, [] { return false; }, expanded, &diagnostics)) {
+    if (!mapnavigator::ExpandNavmeshWaypoints(
+            param,
+            position,
+            [] { return false; },
+            expanded,
+            &diagnostics)) {
         const mapnavigator::NavmeshExpansionFailure failure = mapnavigator::CurrentNavmeshExpansionFailure();
         json::object result = Fail(failure.message.empty() ? "路线展开失败" : failure.message);
         json::object detail {
@@ -630,23 +635,23 @@ json::object BuildRoutePreview(const QueryParam& query)
         if (waypoint.action != mapnavigator::ActionType::ZIPLINE) {
             continue;
         }
-        if (!waypoint.zipline_target) {
+        if (!waypoint.zipline_hop) {
             return Fail("滑索展开结果缺少下索点");
         }
 
         flush_walk();
-        const mapnavigator::ZiplineTarget& target = *waypoint.zipline_target;
-        const navmesh::WorldPoint landing { .x = target.x, .y = target.y };
+        const mapnavigator::ZiplineHopPlan& hop = *waypoint.zipline_hop;
+        const navmesh::WorldPoint landing { .x = hop.landing.x, .y = hop.landing.y };
         json::object segment {
             { "from", json::array { point.x, point.y } },
             { "to", json::array { landing.x, landing.y } },
             { "from_height", waypoint.target_deck_y ? json::value(*waypoint.target_deck_y) : json::value() },
-            { "to_height", target.height },
-            { "elevation_deg", target.elevation_deg },
+            { "to_height", hop.landing.height },
+            { "elevation_deg", hop.planned_elevation_deg },
             { "authored_group_begin", waypoint.authored_group_begin },
         };
-        if (waypoint.mount_restand) {
-            segment.emplace("mount_restand", json::array { waypoint.mount_restand->x, waypoint.mount_restand->y });
+        if (hop.restand) {
+            segment.emplace("mount_restand", json::array { hop.restand->x, hop.restand->y });
         }
         zipline_segments.emplace_back(std::move(segment));
         AppendDistinct(all_points, landing);
@@ -733,7 +738,7 @@ std::optional<QueryParam> ParseParam(const char* custom_recognition_param)
     if (!parsed) {
         return std::nullopt;
     }
-    QueryParam value { };
+    QueryParam value {};
     if (!value.from_json(*parsed)) {
         // from_json 中途失败会留下写了一半的字段，整个丢掉。
         return std::nullopt;

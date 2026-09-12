@@ -36,10 +36,8 @@ struct TransferTextureContext
 
 cv::Rect ScaleRectToSource(const cv::Rect& rect, double scale, const cv::Size& bounds);
 
-std::optional<double> ScoreTransferForeground(
-    const cv::Mat& analysis_image,
-    const cv::Rect& analysis_cell,
-    const TransferTextureContext* texture_context)
+std::optional<double>
+    ScoreTransferForeground(const cv::Mat& analysis_image, const cv::Rect& analysis_cell, const TransferTextureContext* texture_context)
 {
     if (texture_context == nullptr || texture_context->source_grid_scale == kWin32ControllerGridScale) {
         return ForegroundTextureScore(analysis_image, analysis_cell, GridType::Transfer);
@@ -1769,8 +1767,7 @@ std::optional<TransferPanelPhaseFit> FitTransferPanelPhase(
     if (cell_score.empty() || current_x.empty() || current_y.empty()) {
         return std::nullopt;
     }
-    const int maximum_columns =
-        std::max(1, (panel_region.width - profile.cell_size) / std::max(profile.pitch_min, 1) + 1);
+    const int maximum_columns = std::max(1, (panel_region.width - profile.cell_size) / std::max(profile.pitch_min, 1) + 1);
     const int minimum_rows = ProfileFor(GridType::Transfer).min_rows;
     // full ROI 时 hint.region 只覆盖单侧面板；候选与 signed 梯度都必须限制在 region 内，
     // 否则另一侧面板的边界会把相位竞争带偏。
@@ -1824,12 +1821,8 @@ std::optional<TransferPanelPhaseFit> FitTransferPanelPhase(
 
     std::optional<TransferPanelPhaseFit> best;
     std::tuple<double, double, double, double, double, double> best_rank {
-        -std::numeric_limits<double>::infinity(),
-        -std::numeric_limits<double>::infinity(),
-        -std::numeric_limits<double>::infinity(),
-        -std::numeric_limits<double>::infinity(),
-        -std::numeric_limits<double>::infinity(),
-        -std::numeric_limits<double>::infinity(),
+        -std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity(),
+        -std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity(),
     };
     for (const auto& x_starts : x_candidates) {
         const double x_residual = anchor_residual(x_starts, current_x);
@@ -1881,12 +1874,7 @@ std::optional<TransferPanelPhaseFit> FitTransferPanelPhase(
             const double median_support = Median(supports);
             const double mean_support = std::accumulate(supports.begin(), supports.end(), 0.0) / supports.size();
             const auto rank = std::tuple {
-                continuity,
-                lower_support,
-                median_support,
-                mean_support,
-                static_cast<double>(supports.size()),
-                -maximum_anchor_residual,
+                continuity, lower_support, median_support, mean_support, static_cast<double>(supports.size()), -maximum_anchor_residual,
             };
             if (!best || rank > best_rank) {
                 best = TransferPanelPhaseFit { x_starts, y_starts };
@@ -2108,8 +2096,7 @@ GridLayout BuildTransferLayout(
     if (!empty_grid_selected) {
         trusted_fit = FitTrustedRarityGrid(image(roi), hint.region, profile);
         rarity_fit = FitRarityGrid(image(roi), local_x, hint.y_starts, profile);
-        const bool gray_rarity_fit = transfer && left_side && rarity_fit.has_value()
-                                     && rarity_fit->supporting_strong_cells == 0
+        const bool gray_rarity_fit = transfer && left_side && rarity_fit.has_value() && rarity_fit->supporting_strong_cells == 0
                                      && rarity_fit->supporting_chromatic_cells == 0
                                      && rarity_fit->supporting_cells >= kMinimumGrayRarityTextureCells
                                      && HasGrayRarityTextureSupport(image, roi, *rarity_fit, profile, hint.y_starts, texture_context);
@@ -2136,11 +2123,7 @@ GridLayout BuildTransferLayout(
                 for (int observed : hint.y_starts) {
                     const int row = cvRound(static_cast<double>(observed - rarity_fit->origin) / rarity_fit->pitch);
                     const int projected = rarity_fit->origin + row * rarity_fit->pitch;
-                    const cv::Rect projected_cell(
-                        roi.x + local_x.front(),
-                        roi.y + projected,
-                        profile.cell_size,
-                        profile.cell_size);
+                    const cv::Rect projected_cell(roi.x + local_x.front(), roi.y + projected, profile.cell_size, profile.cell_size);
                     if (std::abs(projected - observed) <= profile.observed_pitch_tolerance
                         && IsFormal(projected_cell, roi, profile.minimum_top_visibility, profile.minimum_bottom_visibility)) {
                         observed_rows.push_back(row);
@@ -2271,18 +2254,12 @@ GridLayout BuildTransferLayout(
         if (complete_transfer_panel) {
             const int minimum_y = -cvFloor((1.0 - profile.minimum_top_visibility) * profile.cell_size);
             const int panel_y_end = roi.height + cvFloor((1.0 - profile.minimum_bottom_visibility) * profile.cell_size);
-            const auto panel_y = FormalAxisStarts(
-                local_y.front(),
-                clamped_pitch_y,
-                minimum_y,
-                panel_y_end,
-                profile.cell_size,
-                profile.maximum_rows);
+            const auto panel_y =
+                FormalAxisStarts(local_y.front(), clamped_pitch_y, minimum_y, panel_y_end, profile.cell_size, profile.maximum_rows);
             std::vector<int> observed_indices;
             for (int observed : local_y) {
-                const auto nearest = std::ranges::min_element(panel_y, {}, [observed](int candidate) {
-                    return std::abs(candidate - observed);
-                });
+                const auto nearest =
+                    std::ranges::min_element(panel_y, {}, [observed](int candidate) { return std::abs(candidate - observed); });
                 if (nearest != panel_y.end() && std::abs(*nearest - observed) <= profile.observed_pitch_tolerance + 1) {
                     observed_indices.push_back(static_cast<int>(std::distance(panel_y.begin(), nearest)));
                 }
@@ -2347,8 +2324,8 @@ GridLayout BuildTransferLayout(
             return {};
         }
         // 当前观测到的无稀有度接受路径必须留痕，便于实机排查潜在的幻影网格。
-        LogDebug << "Transfer-left legacy candidate accepted without rarity evidence." << VAR(grid_index)
-                 << VAR(local_x.size()) << VAR(local_y.size());
+        LogDebug << "Transfer-left legacy candidate accepted without rarity evidence." << VAR(grid_index) << VAR(local_x.size())
+                 << VAR(local_y.size());
     }
 
     if (complete_transfer_panel) {
@@ -2370,8 +2347,8 @@ GridLayout BuildTransferLayout(
                 signed_y,
                 reliable_rarity_fit || trusted_selected);
             if (!final_phase) {
-                LogDebug << "Transfer-right phase search rejected all candidates." << VAR(grid_index)
-                         << VAR(local_x.size()) << VAR(local_y.size());
+                LogDebug << "Transfer-right phase search rejected all candidates." << VAR(grid_index) << VAR(local_x.size())
+                         << VAR(local_y.size());
                 return {};
             }
             local_x = final_phase->x_starts;

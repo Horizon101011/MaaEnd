@@ -108,6 +108,7 @@ std::string ErrorMessage(const json::object& detail)
 }
 
 constexpr MaaRect kValidRoi { 0, 0, 54, 54 };
+
 json::object RunFailure(const MaaImageBuffer* image, const char* param, MaaRect& out_box, const MaaRect* roi = &kValidRoi)
 {
     // 这些调用专门验证失败契约，ERROR 属于预期结果，不应污染 CI 控制台。
@@ -316,9 +317,7 @@ void TestSuccessfulSingleRoiRecognitionHonorsRecheckFilters()
     Require(object.contains("matches") && object.at("matches").as_array().size() == 1, "single ROI must contain one match");
     const auto& cell_box = object.at("matches").as_array().at(0).as_object().at("cell_box").as_array();
     Require(
-        out_box.x == cell_box.at(0).as_integer()
-            && out_box.y == cell_box.at(1).as_integer()
-            && out_box.width == cell_box.at(2).as_integer()
+        out_box.x == cell_box.at(0).as_integer() && out_box.y == cell_box.at(1).as_integer() && out_box.width == cell_box.at(2).as_integer()
             && out_box.height == cell_box.at(3).as_integer(),
         "single ROI out_box must use the matched cell");
 }

@@ -2,7 +2,7 @@
 
 该CustomAction支持对滑块进行滑动，支持滑动到指定数值
 
-![BetterSliding示例](https://github.com/user-attachments/assets/27365f2c-b1a5-43cb-8ff6-d75d506716e2)
+![BetterSliding示例](https://github.com/user-attachments/assets/cad74409-911e-43aa-81ba-3d540e2bf6d9)
 
 如上图所示，可通过`SwipeButton`实现滑动，并通过`DecreaseButton`与`IncreaseButton`进行精确操作
 
@@ -11,7 +11,7 @@
 
 ## 仅滑动模式
 
-适合滑动到最大/最小的情景，参数如下。如需精确控制数量，请跳转下文[指定数量模式](#指定数量模式)。
+适合滑动到最大/最小的情景，仅能传入下述参数。仅滑动模式由参数推断：一旦传入指定数量模式字段，即按指定数量模式校验。如需精确控制数量，请跳转下文[指定数量模式](#指定数量模式)。
 
 ### 参数说明
 
@@ -81,18 +81,18 @@
 | 字段 | 类型 | 必填 | 说明 |
 | ------------------------------- | ----------------------- | ---- | ------------------------------------------------------------------------------------------------------------------- |
 | `Direction` | `string` | 是 | 滑动方向。指定"最大值所在方向"，支持 `left` / `right` / `up` / `down`。 |
-| `SliderQuantity.Box` | `int[4]` | 是 | 当前滑条数量 OCR 区域，格式 `[x, y, w, h]`。 |
 | `IncreaseButton` | `string` 或 `int[2\|4]` | 是 | "增加数量"按钮。推荐传模板路径（阈值固定 `0.8`），也可传坐标 `[x, y]` 或 `[x, y, w, h]`。 |
+| `SwipeButton` | `string` | 否 | 自定义滑块模板路径，覆盖 `BetterSlidingSwipeButton` 节点的默认模板。默认 `""`（使用共享默认模板）。 |
 | `DecreaseButton` | `string` 或 `int[2\|4]` | 是 | "减少数量"按钮。格式同 `IncreaseButton`。 |
-| `AvailableQuantity.Box` | `int[4]` | 否 | OCR 区域，用于读取物品可购买/可出售的总量。缺失时使用滑条终点值作为计算基准。 |
+| `SliderQuantity.Box` | `int[4]` | 是 | 当前滑条数量 OCR 区域，格式 `[x, y, w, h]`。 |
 | `SliderQuantity.Filter` | `object` | 否 | 当前滑条数量 OCR 的颜色过滤参数。 |
-| `AvailableQuantity.Filter` | `object` | 否 | 可用总量 OCR 的颜色过滤参数。仅在显式提供 `AvailableQuantity` 时使用。 |
 | `SliderQuantity.OnlyRec` | `bool` | 否 | 是否为滑条数量 OCR 节点启用 `only_rec`。默认 `false`。 |
+| `AvailableQuantity.Box` | `int[4]` | 否 | OCR 区域，用于读取物品可购买/可出售的总量。仅当完全不提供 `AvailableQuantity`（或写 `null`）时，才使用滑条终点值作为计算基准；一旦提供 `AvailableQuantity`，本字段必须为 4 个整数。 |
+| `AvailableQuantity.Filter` | `object` | 否 | 可用总量 OCR 的颜色过滤参数。仅在显式提供 `AvailableQuantity` 时使用。 |
 | `AvailableQuantity.OnlyRec` | `bool` | 否 | 是否为 `BetterSlidingGetAvailableQuantity` 启用 `only_rec`。 |
 | `CenterPointOffset` | `int[2]` | 否 | 相对滑块识别框中心点的点击偏移 `[x, y]`，负数向左/上，正数向右/下。默认 `[-10, 0]`。 |
 | `ClampTargetToSliderMax` | `bool` | 否 | 为 `true` 时，若目标超过 `sliderMaxQuantity`，则钳制为滑条最大可选数量继续执行。默认 `false`。 |
-| `SwipeButton` | `string` | 否 | 自定义滑块模板路径，覆盖 `BetterSlidingSwipeButton` 节点的默认模板。默认 `""`（使用共享默认模板）。 |
-| `OutOfRangeOverrideEnable` | `string` | 否 | 当解析后的目标超出可滑动范围时，将指定 Pipeline 节点的 `enabled` 设为 `true`，然后返回成功。默认 `""`。 |
+| `OutOfRangeOverrideEnable` | `string` | 否 | 当解析后的目标超出可滑动范围时，将指定 Pipeline 节点的 `enabled` 设为 `true` 并返回成功；未配置该字段（默认 `""`）时，本次动作直接返回失败。 |
 | `TargetReachableOverrideEnable` | `string` | 否 | 当解析后的目标无需钳制且位于 `[1, sliderMaxQuantity]` 时，将指定 Pipeline 节点的 `enabled` 设为 `true`。默认 `""`。 |
 
 > [!note]
@@ -122,13 +122,13 @@
 
 ### 结果节点契约
 
-`OutOfRangeOverrideEnable` 与 `TargetReachableOverrideEnable` 用于把本次 BetterSliding 的判定传回调用方。两个参数必须引用不同节点，且结果节点建议默认设置 `enabled: false`。
+`OutOfRangeOverrideEnable` 与 `TargetReachableOverrideEnable` 用于把本次 BetterSliding 的判定传回调用方：每次判定至多启用其中一个节点（另一个若已配置会被设为 `enabled: false`）。两个参数必须引用不同节点，且结果节点建议默认设置 `enabled: false`。
 
-| 解析后的目标 | `OutOfRangeOverrideEnable` | `TargetReachableOverrideEnable` | BetterSliding 行为 |
-| ------------------------------------------------------------ | -------------------------- | ------------------------------- | ---------------------------------------------- |
-| 小于 1、`sliderMaxQuantity` 为 0，或未钳制时大于滑条最大数量 | `true` | `false` | 不调整数量，返回成功，由调用方处理越界结果 |
-| 位于 `[1, sliderMaxQuantity]` | `false` | `true` | 调整到目标数量 |
-| 大于 `sliderMaxQuantity` 且启用钳制 | `false` | `false` | 调整到 `sliderMaxQuantity`，尚不能达到原始目标 |
+| 解析后的目标 | override node | BetterSliding 行为 |
+| --- | --- | --- |
+| 小于 1、`sliderMaxQuantity` 为 0，或未钳制时大于滑条最大数量 | `OutOfRangeOverrideEnable` | 不调整数量并返回成功；未配置该字段时本次动作直接失败 |
+| 位于 `[1, sliderMaxQuantity]` | `TargetReachableOverrideEnable` | 调整到目标数量 |
+| 大于 `sliderMaxQuantity` 且启用钳制 | 无 | 调整到 `sliderMaxQuantity`，尚不能达到原始目标 |
 
 `sliderMaxQuantity == 0` 只表示当前没有可选的正数目标，BetterSliding 不推断余额不足、库存不足或控件不可用等业务原因。调用方如需区分具体状态，应在 Pipeline 中识别对应界面。
 

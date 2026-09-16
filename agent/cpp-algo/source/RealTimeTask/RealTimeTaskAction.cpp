@@ -239,8 +239,8 @@ MaaBool MAA_CALL RealTimeTaskActionRun(
         }
         const std::string pipeline_override = BuildPipelineOverride(nodes);
         LogInfo << "RealTimeTaskAction: start polling realtime nodes" << VAR(nodes.size()) << VAR(attach.skland_map_enable)
-                << VAR(attach.skland_map_opacity) << VAR(attach.video_browser_enable)
-                << VAR(attach.video_browser_opacity) << VAR(attach.video_browser_url);
+                << VAR(attach.skland_map_opacity) << VAR(attach.video_browser_enable) << VAR(attach.video_browser_opacity)
+                << VAR(attach.video_browser_url);
 
         MaaTasker* tasker = MaaContextGetTasker(context);
         if (!tasker) {

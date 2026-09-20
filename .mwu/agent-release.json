@@ -2,15 +2,15 @@
   "schemaVersion": 1,
   "platforms": {
     "linux-aarch64": {
-      "buildId": "c17cab40397c1f93f1d03628",
-      "releaseTag": "agents-linux-aarch64-c17cab40397c1f93f1d03628",
-      "bundle": "maaend-agents-linux-aarch64-c17cab40397c1f93f1d03628.tar.gz",
-      "checksum": "maaend-agents-linux-aarch64-c17cab40397c1f93f1d03628.tar.gz.sha256",
-      "manifest": "maaend-agents-linux-aarch64-c17cab40397c1f93f1d03628.manifest.json",
+      "buildId": "81e9ac2c1df97af07f3fa1ef",
+      "releaseTag": "agents-linux-aarch64-81e9ac2c1df97af07f3fa1ef",
+      "bundle": "maaend-agents-linux-aarch64-81e9ac2c1df97af07f3fa1ef.tar.gz",
+      "checksum": "maaend-agents-linux-aarch64-81e9ac2c1df97af07f3fa1ef.tar.gz.sha256",
+      "manifest": "maaend-agents-linux-aarch64-81e9ac2c1df97af07f3fa1ef.manifest.json",
       "maafwCompatVersion": "v5.13.0",
       "source": {
-        "goTree": "90f23b71e07ba30a47edad449760868a7a1948f3",
-        "cppTree": "9c5127b24bc3eb8a3329cb804ba8d7f9f4dd5d03",
+        "goTree": "08a510f478dfabf8c2d1aca56769d3de9f95cafd",
+        "cppTree": "a43be867c41a87d07fe651c47c4efc7ac3b671b6",
         "maadepsBlob": "df02beebca49011754f0373e163903778c6abf50",
         "setupTree": "a06fed833158bd34722bf0e6f0f8ed1775dff79d",
         "pyprojectBlob": "d77268fccb1736844d431c933e62cb43359b8a8f",

@@ -12,8 +12,6 @@
     "AutoStockpileEnterRegionalDevelopment": {
         "recognition": "DirectHit",
         "pre_delay": 0,
-        "post_delay": 0,
-        "rate_limit": 0,
         "action": {
             "type": "Custom",
             "param": {
@@ -25,20 +23,22 @@
                 }
             }
         },
+        "post_delay": 0,
+        "rate_limit": 0,
         "next": [
             "AutoStockpileGetUid"
         ]
     },
     "AutoStockpileGetUid": {
         "pre_delay": 0,
-        "post_delay": 0,
-        "rate_limit": 0,
         "action": {
             "type": "Custom",
             "param": {
                 "custom_action": "CaptureUid"
             }
         },
+        "post_delay": 0,
+        "rate_limit": 0,
         "next": [
             "AutoStockpileStart"
         ]

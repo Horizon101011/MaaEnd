@@ -63,7 +63,7 @@
         },
         "next": [
             "GotoTriggerPointMoveExact_VFOriginLodespring"
-        ],        
+        ],
         "on_error": [
             "[Anchor]AutoEssenceMoveToTriggerPointMaybeTeleport"
         ],

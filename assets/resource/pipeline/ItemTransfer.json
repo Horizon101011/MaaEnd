@@ -196,15 +196,11 @@
     },
     "ItemTransferStashBackpackMain": {
         "desc": "保留整理背包功能，不复用通用整理背包传送兜底",
-        "recognition": "And",
-        "all_of": [
-            "InDijiangDepot"
-        ],
         "pre_delay": 0,
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "StashBackpackStashQuickSubTask"
+            "StashBackpackEnterSuccess"
         ]
     },
     "ItemTransferRepoSwitchButton": {
@@ -798,7 +794,7 @@
     },
     "ItemTransferTransferForwardToBag": {
         "action": "Custom",
-        "custom_action": "InventoryTransferAllAction",
+        "custom_action": "AutoCtrlClickAction",
         "target": "ItemTransferFindForwardItemInRepo",
         "target_offset": [
             26,
@@ -822,7 +818,7 @@
     },
     "ItemTransferTransferReturnToBag": {
         "action": "Custom",
-        "custom_action": "InventoryTransferAllAction",
+        "custom_action": "AutoCtrlClickAction",
         "target": "ItemTransferFindReturnItemInRepo",
         "target_offset": [
             26,
@@ -1177,7 +1173,7 @@
     },
     "ItemTransferTransferForwardToRepo": {
         "action": "Custom",
-        "custom_action": "InventoryTransferAllAction",
+        "custom_action": "AutoCtrlClickAction",
         "target": "ItemTransferFindForwardItemInBag",
         "target_offset": [
             26,
@@ -1201,7 +1197,7 @@
     },
     "ItemTransferTransferReturnToRepo": {
         "action": "Custom",
-        "custom_action": "InventoryTransferAllAction",
+        "custom_action": "AutoCtrlClickAction",
         "target": "ItemTransferFindReturnItemInBag",
         "target_offset": [
             26,
@@ -1615,7 +1611,7 @@
     },
     "ItemTransferTransferToRepoReturn": {
         "action": "Custom",
-        "custom_action": "InventoryTransferAllAction",
+        "custom_action": "AutoCtrlClickAction",
         "target": "ItemTransferFindItemInBagReturn",
         "target_offset": [
             26,

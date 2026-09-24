@@ -23049,11 +23049,9 @@
                 },
                 {
                     "name": "Yes",
-                    "pipeline_override": {
-                        "StashBackpackStashQuick": {
-                            "enabled": true
-                        }
-                    }
+                    "option": [
+                        "StashBackpackType"
+                    ]
                 }
             ]
         },

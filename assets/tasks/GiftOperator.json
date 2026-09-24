@@ -6,7 +6,7 @@
             "entry": "GiftOperatorMain",
             "description": "$task.GiftOperator.description",
             "option": [
-                "StoreNewItemsWithStashBackpack",
+                "StashBackpackSubTask",
                 "OnlyReceiveGift"
             ],
             "group": [

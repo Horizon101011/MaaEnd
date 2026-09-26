@@ -124,8 +124,10 @@ std::vector<std::vector<navmesh::OccluderHit>>
 // The height each structure base settles to in the occluder pack's collision world (see OccluderScene::groundHeight),
 // in the shape of bases. Where no answer is available (zone unresolved, occluder pack missing, scene absent) a base
 // keeps its own y. Resolves the zone and shares the decoded pack like NavmeshLineGroupBlocks.
-std::vector<std::vector<double>>
-    NavmeshGroundHeights(const NaviParam& param, const std::string& locator_zone, const std::vector<std::vector<navmesh::OccluderPoint>>& bases);
+std::vector<std::vector<double>> NavmeshGroundHeights(
+    const NaviParam& param,
+    const std::string& locator_zone,
+    const std::vector<std::vector<navmesh::OccluderPoint>>& bases);
 
 // The bake-time connectivity classes each point sits in. A route is searched inside one class only, so
 // two points whose sets are disjoint cannot be connected by any plan — a cheap way to drop legs that are

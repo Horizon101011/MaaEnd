@@ -1632,8 +1632,10 @@ std::vector<std::vector<navmesh::OccluderHit>>
     return blocks;
 }
 
-std::vector<std::vector<double>>
-    NavmeshGroundHeights(const NaviParam& param, const std::string& locator_zone, const std::vector<std::vector<navmesh::OccluderPoint>>& bases)
+std::vector<std::vector<double>> NavmeshGroundHeights(
+    const NaviParam& param,
+    const std::string& locator_zone,
+    const std::vector<std::vector<navmesh::OccluderPoint>>& bases)
 {
     std::vector<std::vector<double>> heights(bases.size());
     for (size_t index = 0; index < bases.size(); ++index) {

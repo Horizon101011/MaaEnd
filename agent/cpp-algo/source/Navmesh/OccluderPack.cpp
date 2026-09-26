@@ -328,12 +328,15 @@ size_t ClipToRect(const Vec3 (&tri)[3], double x0, double x1, double z0, double 
         double bound;
         bool keep_above;
     };
+
     const Cut cuts[4] = { { 0, x0, true }, { 0, x1, false }, { 2, z0, true }, { 2, z1, false } };
     std::copy(std::begin(tri), std::end(tri), poly.begin());
     size_t count = 3;
     std::array<Vec3, kClipMaxVertices> next {};
     for (const Cut& cut : cuts) {
-        const auto inside = [&](const Vec3& p) { return cut.keep_above ? p[cut.axis] >= cut.bound : p[cut.axis] <= cut.bound; };
+        const auto inside = [&](const Vec3& p) {
+            return cut.keep_above ? p[cut.axis] >= cut.bound : p[cut.axis] <= cut.bound;
+        };
         size_t kept = 0;
         for (size_t i = 0; i < count; ++i) {
             const Vec3& p = poly[i];
@@ -846,7 +849,9 @@ std::vector<OccluderHit> OccluderScene::lineHits(const OccluderPoint& start, con
         return hit;
     };
 
-    const auto reaches = [&](const Vec3& lo, const Vec3& hi) { return SegBox(a, d, lo, hi); };
+    const auto reaches = [&](const Vec3& lo, const Vec3& hi) {
+        return SegBox(a, d, lo, hi);
+    };
     VisitTree(instance_nodes, instance_order, reaches, [&](uint32_t index) {
         const Instance& inst = instances[index];
         if (!SegBox(a, d, inst.lo, inst.hi)) {
@@ -889,7 +894,9 @@ std::vector<OccluderHit> OccluderScene::lineHits(const OccluderPoint& start, con
             }
         }
         else {
-            const auto local_reaches = [&](const Vec3& lo, const Vec3& hi) { return SegBox(la, ld, lo, hi); };
+            const auto local_reaches = [&](const Vec3& lo, const Vec3& hi) {
+                return SegBox(la, ld, lo, hi);
+            };
             VisitTree(tpl.nodes, tpl.order, local_reaches, test);
         }
     });
@@ -924,8 +931,11 @@ double OccluderScene::groundHeight(const OccluderPoint& base) const
         Vec3 v[3];
         bool up = false;
     };
+
     std::vector<Face> faces;
-    const auto reaches = [&](const Vec3& node_lo, const Vec3& node_hi) { return BoxBox(lo, hi, node_lo, node_hi); };
+    const auto reaches = [&](const Vec3& node_lo, const Vec3& node_hi) {
+        return BoxBox(lo, hi, node_lo, node_hi);
+    };
     VisitTree(instance_nodes, instance_order, reaches, [&](uint32_t index) {
         const Instance& inst = instances[index];
         if (!BoxBox(lo, hi, inst.lo, inst.hi)) {
@@ -968,7 +978,9 @@ double OccluderScene::groundHeight(const OccluderPoint& base) const
                 local_hi[j] = std::fmax(local_hi[j], l[j]);
             }
         }
-        const auto local_reaches = [&](const Vec3& node_lo, const Vec3& node_hi) { return BoxBox(local_lo, local_hi, node_lo, node_hi); };
+        const auto local_reaches = [&](const Vec3& node_lo, const Vec3& node_hi) {
+            return BoxBox(local_lo, local_hi, node_lo, node_hi);
+        };
         VisitTree(tpl.nodes, tpl.order, local_reaches, take);
     });
     // 地形处处朝上;挖了洞的格没有面

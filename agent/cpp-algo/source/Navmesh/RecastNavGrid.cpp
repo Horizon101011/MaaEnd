@@ -49,16 +49,7 @@ int64_t occFind(const SpanTable& st, int64_t cid)
 }
 
 // cid 沿 (dx,dy) 走 s 格处是否有落在 h±tol 的 span。s 可为负,即朝反方向探。
-bool levelAt(
-    const SpanTable& st,
-    int64_t nx,
-    int64_t ny,
-    int64_t cid,
-    int64_t dx,
-    int64_t dy,
-    int64_t s,
-    float h,
-    double tol)
+bool levelAt(const SpanTable& st, int64_t nx, int64_t ny, int64_t cid, int64_t dx, int64_t dy, int64_t s, float h, double tol)
 {
     const int64_t ax = cid % nx + dx * s;
     const int64_t ay = cid / nx + dy * s;
@@ -1034,7 +1025,8 @@ std::optional<std::vector<int64_t>> SpanAstar(
     };
     // 从台沿跳下来的那一步: 台沿本身挡视线, 弦判据必然不过, 所以与跳边同样豁免
     const auto byFall = [&](int64_t p, int64_t u) {
-        return p >= 0 && static_cast<double>(st.sp_h[static_cast<size_t>(p)]) - static_cast<double>(st.sp_h[static_cast<size_t>(u)]) > kClimb;
+        return p >= 0
+               && static_cast<double>(st.sp_h[static_cast<size_t>(p)]) - static_cast<double>(st.sp_h[static_cast<size_t>(u)]) > kClimb;
     };
     const int64_t nx = ok2.nx, ny = ok2.ny;
     const int64_t gc = st.sp_cell[static_cast<size_t>(gset.front())];

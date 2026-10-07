@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "modelCommit": "d0a08dd86370d3b7a941481800d173fbed92fce5",
-  "releaseTag": "models-d0a08dd86370d3b7a9414818",
-  "bundle": "maaend-models-d0a08dd86370d3b7a9414818.tar.gz",
-  "checksum": "maaend-models-d0a08dd86370d3b7a9414818.tar.gz.sha256",
-  "manifest": "maaend-models-d0a08dd86370d3b7a9414818.manifest.json",
+  "modelCommit": "23ef0809073bed3c7655a62a8542059e49156d18",
+  "releaseTag": "models-23ef0809073bed3c7655a62a",
+  "bundle": "maaend-models-23ef0809073bed3c7655a62a.tar.gz",
+  "checksum": "maaend-models-23ef0809073bed3c7655a62a.tar.gz.sha256",
+  "manifest": "maaend-models-23ef0809073bed3c7655a62a.manifest.json",
   "source": {
     "repository": "https://github.com/MaaEnd/MaaEnd-AI.git",
     "submodulePath": "assets/resource/model"

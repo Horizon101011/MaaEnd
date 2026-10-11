@@ -107,6 +107,55 @@ jobs:
         shell: bash
         run: git submodule update --init --recursive
 
+      # Keep the Agent-side MaaUtils pin compatible with the MaaFramework SDK
+      # selected above. This mirrors MaaEnd upstream's install.yml gate:
+      # synced/ahead are accepted, behind/diverged are blocked, and transient
+      # infrastructure failures only warn.
+      - name: Check MaaUtils compatibility with MaaFramework
+        id: maautils-sync-check
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAAFW_VERSION: ${{ steps.maafw.outputs.version }}
+        run: |
+          set +e
+          out=$(python3 tools/check_maautils_sync.py --maafw-ref "$MAAFW_VERSION")
+          rc=$?
+          set -e
+
+          echo "$out"
+          status=$(sed -n 's/^status=//p' <<<"$out")
+          expected=$(sed -n 's/^expected_sha=//p' <<<"$out")
+          current=$(sed -n 's/^current_sha=//p' <<<"$out")
+
+          {
+            echo "### MaaUtils Sync Check"
+            echo
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| MaaFramework | \`$MAAFW_VERSION\` |"
+            echo "| Upstream pinned MaaUtils | \`${expected:-n/a}\` |"
+            echo "| Local MaaUtils | \`${current:-n/a}\` |"
+            echo "| Verdict | \`${status:-unknown}\` (exit=$rc) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          case "$rc" in
+            0)
+              echo "MaaUtils gate passed: ${status:-unknown}"
+              ;;
+            1|2)
+              echo "::error::MaaUtils submodule is '${status:-unknown}' relative to the pin of MaaFramework $MAAFW_VERSION; builds are blocked until it is synced."
+              exit 1
+              ;;
+            3)
+              echo "::error::Cannot resolve the MaaUtils pin of MaaFramework $MAAFW_VERSION (tag missing or upstream source/MaaUtils path changed). Manual investigation required."
+              exit 1
+              ;;
+            *)
+              echo "::warning::MaaUtils sync status is UNKNOWN due to transient network/API failures after retries; matching upstream behavior and allowing this run to continue."
+              ;;
+          esac
+
       - name: Calculate Model release metadata
         id: model
         shell: bash
@@ -889,4 +938,3 @@ jobs:
               --yes \
               --cleanup-tag
           done
-

@@ -21,7 +21,6 @@ on:
       - "agent/**"
       - "assets/resource/model"
       - "pyproject.toml"
-      - "tools/maadeps-download.py"
       - "tools/setup/**"
 
 permissions:
@@ -102,6 +101,76 @@ jobs:
           fi
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve MaaDeps version from MaaFramework
+        id: maadeps
+        shell: bash
+        env:
+          MAAFW_VERSION: ${{steps.maafw.outputs.version}}
+        run: |
+          set -euo pipefail
+
+          script_url="https://raw.githubusercontent.com/MaaXYZ/MaaFramework/${MAAFW_VERSION}/tools/maadeps-download.py"
+          resolved_script=$(mktemp)
+          trap 'rm -f "$resolved_script"' EXIT
+
+          curl -fsSL \
+            --retry 3 \
+            --retry-delay 2 \
+            --retry-all-errors \
+            "$script_url" \
+            -o "$resolved_script"
+
+          readarray -t resolved < <(python3 - "$resolved_script" <<'PY'
+          import ast
+          import sys
+
+          path = sys.argv[1]
+          tree = ast.parse(open(path, encoding="utf-8").read(), path)
+          values = {}
+
+          for node in tree.body:
+              if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                  continue
+
+              targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+              value_node = node.value
+              for target in targets:
+                  if isinstance(target, ast.Name) and target.id in {"REPO", "VERSION"}:
+                      values[target.id] = ast.literal_eval(value_node)
+
+          missing = {"REPO", "VERSION"} - values.keys()
+          if missing:
+              raise SystemExit(
+                  f"Missing {', '.join(sorted(missing))} in MaaFramework maadeps-download.py"
+              )
+
+          print(values["REPO"])
+          print(values["VERSION"])
+          PY
+          )
+
+          maadeps_repo=${resolved[0]}
+          maadeps_version=${resolved[1]}
+          if [[ "$maadeps_repo" != "MaaXYZ/MaaDeps" ]]; then
+            echo "::error::Unexpected MaaDeps repository '$maadeps_repo' for MaaFramework $MAAFW_VERSION"
+            exit 1
+          fi
+
+          echo "repo=$maadeps_repo" >> "$GITHUB_OUTPUT"
+          echo "version=$maadeps_version" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### MaaFramework Dependency Resolution"
+            echo
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| MaaFramework | \`$MAAFW_VERSION\` |"
+            echo "| MaaDeps repository | \`$maadeps_repo\` |"
+            echo "| MaaDeps version | \`$maadeps_version\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "MaaFramework $MAAFW_VERSION requires $maadeps_repo $maadeps_version"
 
       - name: Initialize submodules
         shell: bash
@@ -449,13 +518,13 @@ jobs:
         shell: bash
         env:
           MAAFW_VERSION: ${{steps.maafw.outputs.version}}
+          MAADEPS_VERSION: ${{steps.maadeps.outputs.version}}
         run: |
           set -euo pipefail
 
           candidate_sha=$(git rev-parse HEAD)
           go_tree=$(git rev-parse "${candidate_sha}:agent/go-service")
           cpp_tree=$(git rev-parse "${candidate_sha}:agent/cpp-algo")
-          maadeps_blob=$(git rev-parse "${candidate_sha}:tools/maadeps-download.py")
           setup_tree=$(git rev-parse "${candidate_sha}:tools/setup")
           pyproject_blob=$(git rev-parse "${candidate_sha}:pyproject.toml")
           workflow_blob=$(git rev-parse "${candidate_sha}:.github/workflows/sync-and-release.yml")
@@ -464,9 +533,9 @@ jobs:
             printf '%s\n' \
               "target=${TARGET_OS}-${TARGET_ARCH}" \
               "maafw=$MAAFW_VERSION" \
+              "maadeps=$MAADEPS_VERSION" \
               "go_tree=$go_tree" \
               "cpp_tree=$cpp_tree" \
-              "maadeps_blob=$maadeps_blob" \
               "setup_tree=$setup_tree" \
               "pyproject_blob=$pyproject_blob" \
               "workflow_blob=$workflow_blob" |
@@ -484,9 +553,9 @@ jobs:
           echo "bundle=$bundle" >> "$GITHUB_OUTPUT"
           echo "checksum=$checksum" >> "$GITHUB_OUTPUT"
           echo "manifest=$manifest" >> "$GITHUB_OUTPUT"
+          echo "maadeps_version=$MAADEPS_VERSION" >> "$GITHUB_OUTPUT"
           echo "go_tree=$go_tree" >> "$GITHUB_OUTPUT"
           echo "cpp_tree=$cpp_tree" >> "$GITHUB_OUTPUT"
-          echo "maadeps_blob=$maadeps_blob" >> "$GITHUB_OUTPUT"
           echo "setup_tree=$setup_tree" >> "$GITHUB_OUTPUT"
           echo "pyproject_blob=$pyproject_blob" >> "$GITHUB_OUTPUT"
           echo "workflow_blob=$workflow_blob" >> "$GITHUB_OUTPUT"
@@ -532,11 +601,11 @@ jobs:
           MANIFEST: ${{steps.build.outputs.manifest}}
           GO_TREE: ${{steps.build.outputs.go_tree}}
           CPP_TREE: ${{steps.build.outputs.cpp_tree}}
-          MAADEPS_BLOB: ${{steps.build.outputs.maadeps_blob}}
           SETUP_TREE: ${{steps.build.outputs.setup_tree}}
           PYPROJECT_BLOB: ${{steps.build.outputs.pyproject_blob}}
           WORKFLOW_BLOB: ${{steps.build.outputs.workflow_blob}}
           MAAFW_VERSION: ${{steps.maafw.outputs.version}}
+          MAADEPS_VERSION: ${{steps.maadeps.outputs.version}}
         run: |
           set -euo pipefail
 
@@ -548,9 +617,9 @@ jobs:
             --arg checksum "$CHECKSUM" \
             --arg manifest "$MANIFEST" \
             --arg maafw_compat_version "$MAAFW_VERSION" \
+            --arg maadeps_version "$MAADEPS_VERSION" \
             --arg go_tree "$GO_TREE" \
             --arg cpp_tree "$CPP_TREE" \
-            --arg maadeps_blob "$MAADEPS_BLOB" \
             --arg setup_tree "$SETUP_TREE" \
             --arg pyproject_blob "$PYPROJECT_BLOB" \
             --arg workflow_blob "$WORKFLOW_BLOB" \
@@ -564,10 +633,10 @@ jobs:
                   checksum: $checksum,
                   manifest: $manifest,
                   maafwCompatVersion: $maafw_compat_version,
+                  maadepsVersion: $maadeps_version,
                   source: {
                     goTree: $go_tree,
                     cppTree: $cpp_tree,
-                    maadepsBlob: $maadeps_blob,
                     setupTree: $setup_tree,
                     pyprojectBlob: $pyproject_blob,
                     workflowBlob: $workflow_blob
@@ -604,13 +673,33 @@ jobs:
         uses: actions/cache@v5
         with:
           path: agent/cpp-algo/MaaUtils/MaaDeps
-          key: maadeps-linux-aarch64-${{hashFiles('tools/maadeps-download.py')}}
+          key: maadeps-${{env.TARGET_OS}}-${{env.TARGET_ARCH}}-${{steps.maafw.outputs.version}}-${{steps.maadeps.outputs.version}}
 
       - name: Bootstrap MaaDeps
         if: steps.release.outputs.ready != 'true' && steps.cache-maadeps.outputs.cache-hit != 'true'
+        shell: bash
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
-        run: python3 tools/maadeps-download.py arm64-linux
+          MAADEPS_REPO: ${{steps.maadeps.outputs.repo}}
+          MAADEPS_VERSION: ${{steps.maadeps.outputs.version}}
+        run: |
+          set -euo pipefail
+
+          # Do not use the MaaEnd wrapper here: its VERSION tracks MaaEnd upstream,
+          # while this workflow must follow the selected MaaFramework compatibility tag.
+          python3 - "$MAADEPS_REPO" "$MAADEPS_VERSION" <<'PY'
+          import sys
+          from pathlib import Path
+
+          tools_dir = Path("agent/cpp-algo/MaaUtils/tools").resolve()
+          sys.path.insert(0, str(tools_dir))
+
+          from maadeps_download import main as download_main
+
+          repo = sys.argv[1]
+          version = sys.argv[2]
+          download_main("arm64-linux", repo, version)
+          PY
 
       - name: Prepare MaaFramework SDK directory
         if: steps.release.outputs.ready != 'true'
@@ -654,11 +743,11 @@ jobs:
           MANIFEST: ${{steps.build.outputs.manifest}}
           GO_TREE: ${{steps.build.outputs.go_tree}}
           CPP_TREE: ${{steps.build.outputs.cpp_tree}}
-          MAADEPS_BLOB: ${{steps.build.outputs.maadeps_blob}}
           SETUP_TREE: ${{steps.build.outputs.setup_tree}}
           PYPROJECT_BLOB: ${{steps.build.outputs.pyproject_blob}}
           WORKFLOW_BLOB: ${{steps.build.outputs.workflow_blob}}
           MAAFW_VERSION: ${{steps.maafw.outputs.version}}
+          MAADEPS_VERSION: ${{steps.maadeps.outputs.version}}
           CANDIDATE_SHA: ${{steps.candidate.outputs.candidate_sha}}
           UPSTREAM_SHA: ${{steps.candidate.outputs.upstream_sha}}
         run: |
@@ -682,11 +771,11 @@ jobs:
             --arg upstream_commit "$UPSTREAM_SHA" \
             --arg go_tree "$GO_TREE" \
             --arg cpp_tree "$CPP_TREE" \
-            --arg maadeps_blob "$MAADEPS_BLOB" \
             --arg setup_tree "$SETUP_TREE" \
             --arg pyproject_blob "$PYPROJECT_BLOB" \
             --arg workflow_blob "$WORKFLOW_BLOB" \
             --arg maafw_compat_version "$MAAFW_VERSION" \
+            --arg maadeps_version "$MAADEPS_VERSION" \
             --arg go_sha256 "$go_sha" \
             --arg cpp_sha256 "$cpp_sha" \
             --argjson go_size "$go_size" \
@@ -701,12 +790,12 @@ jobs:
               source: {
                 go_tree: $go_tree,
                 cpp_tree: $cpp_tree,
-                maadeps_blob: $maadeps_blob,
                 setup_tree: $setup_tree,
                 pyproject_blob: $pyproject_blob,
                 workflow_blob: $workflow_blob
               },
               maafw_compat_version: $maafw_compat_version,
+              maadeps_version: $maadeps_version,
               files: {
                 "go-service": {
                   sha256: $go_sha256,
@@ -737,6 +826,7 @@ jobs:
           CANDIDATE_SHA: ${{steps.candidate.outputs.candidate_sha}}
           UPSTREAM_SHA: ${{steps.candidate.outputs.upstream_sha}}
           MAAFW_VERSION: ${{steps.maafw.outputs.version}}
+          MAADEPS_VERSION: ${{steps.maadeps.outputs.version}}
         run: |
           set -euo pipefail
 
@@ -752,11 +842,12 @@ jobs:
             --json isDraft 2>/dev/null || true)
 
           if [[ -z "$release_info" ]]; then
-            notes=$(printf '%s\n\n%s\n%s\n%s\n' \
+            notes=$(printf '%s\n\n%s\n%s\n%s\n%s\n' \
               "Automated MaaEnd Agent build." \
               "- Upstream commit: $UPSTREAM_SHA" \
               "- Build ID: $BUILD_ID" \
-              "- MaaFramework compatibility version: $MAAFW_VERSION")
+              "- MaaFramework compatibility version: $MAAFW_VERSION" \
+              "- MaaDeps version: $MAADEPS_VERSION")
             gh release create "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --verify-tag \
@@ -817,6 +908,7 @@ jobs:
           MANIFEST: ${{steps.build.outputs.manifest}}
           BUILD_ID: ${{steps.build.outputs.build_id}}
           MAAFW_VERSION: ${{steps.maafw.outputs.version}}
+          MAADEPS_VERSION: ${{steps.maadeps.outputs.version}}
         run: |
           set -euo pipefail
 
@@ -836,9 +928,11 @@ jobs:
           jq -e \
             --arg build_id "$BUILD_ID" \
             --arg maafw "$MAAFW_VERSION" \
+            --arg maadeps "$MAADEPS_VERSION" \
             '(.schema_version == 1)
               and (.build_id == $build_id)
               and (.maafw_compat_version == $maafw)
+              and (.maadeps_version == $maadeps)
               and (.files["go-service"].sha256 | type == "string")
               and (.files["cpp-algo"].sha256 | type == "string")' \
             "$verify_dir/$MANIFEST"

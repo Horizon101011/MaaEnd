@@ -141,15 +141,15 @@
                 {
                     "action": "NAVMESH",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.4,
+                        302
                     ]
                 },
                 {
-                    "action": "TRANSFER",
+                    "action": "JUMP_PAD",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.89,
+                        305.68
                     ]
                 },
                 [
@@ -234,7 +234,8 @@
                         "マッテオ",
                         "마테오"
                     ],
-                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan"
+                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan",
+                    "interact_rec": true
                 }
             ],
             "zip": false,
@@ -265,15 +266,15 @@
                 {
                     "action": "NAVMESH",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.4,
+                        302
                     ]
                 },
                 {
-                    "action": "TRANSFER",
+                    "action": "JUMP_PAD",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.89,
+                        305.68
                     ]
                 },
                 [
@@ -358,7 +359,8 @@
                         "マッテオ",
                         "마테오"
                     ],
-                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan"
+                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan",
+                    "interact_rec": true
                 }
             ],
             "zip": true,
@@ -418,7 +420,8 @@
                         "マッテオ",
                         "마테오"
                     ],
-                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan"
+                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan",
+                    "interact_rec": true
                 }
             ],
             "heading_source": "camera"
@@ -448,15 +451,15 @@
                 {
                     "action": "NAVMESH",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.4,
+                        302
                     ]
                 },
                 {
-                    "action": "TRANSFER",
+                    "action": "JUMP_PAD",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.89,
+                        305.68
                     ]
                 },
                 [
@@ -541,7 +544,8 @@
                         "ルー・イェン",
                         "육언"
                     ],
-                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan"
+                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan",
+                    "interact_rec": true
                 }
             ],
             "zip": false,
@@ -572,15 +576,15 @@
                 {
                     "action": "NAVMESH",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.4,
+                        302
                     ]
                 },
                 {
-                    "action": "TRANSFER",
+                    "action": "JUMP_PAD",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.89,
+                        305.68
                     ]
                 },
                 [
@@ -665,7 +669,8 @@
                         "ルー・イェン",
                         "육언"
                     ],
-                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan"
+                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan",
+                    "interact_rec": true
                 }
             ],
             "zip": true,
@@ -725,7 +730,8 @@
                         "ルー・イェン",
                         "육언"
                     ],
-                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan"
+                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan",
+                    "interact_rec": true
                 }
             ],
             "heading_source": "camera"
@@ -755,15 +761,15 @@
                 {
                     "action": "NAVMESH",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.4,
+                        302
                     ]
                 },
                 {
-                    "action": "TRANSFER",
+                    "action": "JUMP_PAD",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.89,
+                        305.68
                     ]
                 },
                 [
@@ -862,15 +868,15 @@
                 {
                     "action": "NAVMESH",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.4,
+                        302
                     ]
                 },
                 {
-                    "action": "TRANSFER",
+                    "action": "JUMP_PAD",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.89,
+                        305.68
                     ]
                 },
                 [
@@ -1011,15 +1017,15 @@
                 {
                     "action": "NAVMESH",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.4,
+                        302
                     ]
                 },
                 {
-                    "action": "TRANSFER",
+                    "action": "JUMP_PAD",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.89,
+                        305.68
                     ]
                 },
                 [
@@ -1109,7 +1115,8 @@
                     "interact_text": {
                         "node": "AutoDeliverySubmitGoodsInteractText"
                     },
-                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan"
+                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan",
+                    "interact_rec": true
                 }
             ],
             "zip": false,
@@ -1140,15 +1147,15 @@
                 {
                     "action": "NAVMESH",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.4,
+                        302
                     ]
                 },
                 {
-                    "action": "TRANSFER",
+                    "action": "JUMP_PAD",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.89,
+                        305.68
                     ]
                 },
                 [
@@ -1238,7 +1245,8 @@
                     "interact_text": {
                         "node": "AutoDeliverySubmitGoodsInteractText"
                     },
-                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan"
+                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan",
+                    "interact_rec": true
                 }
             ],
             "zip": true,
@@ -1294,7 +1302,8 @@
                     "interact_text": {
                         "node": "AutoDeliverySubmitGoodsInteractText"
                     },
-                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan"
+                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan",
+                    "interact_rec": true
                 }
             ],
             "heading_source": "camera"
@@ -1324,15 +1333,15 @@
                 {
                     "action": "NAVMESH",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.4,
+                        302
                     ]
                 },
                 {
-                    "action": "TRANSFER",
+                    "action": "JUMP_PAD",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.89,
+                        305.68
                     ]
                 },
                 [
@@ -1422,7 +1431,8 @@
                     "interact_text": {
                         "node": "AutoDeliverySubmitGoodsInteractText"
                     },
-                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan"
+                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan",
+                    "interact_rec": true
                 }
             ],
             "zip": false,
@@ -1453,15 +1463,15 @@
                 {
                     "action": "NAVMESH",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.4,
+                        302
                     ]
                 },
                 {
-                    "action": "TRANSFER",
+                    "action": "JUMP_PAD",
                     "target": [
-                        1002.89,
-                        304.52
+                        1001.89,
+                        305.68
                     ]
                 },
                 [
@@ -1551,7 +1561,8 @@
                     "interact_text": {
                         "node": "AutoDeliverySubmitGoodsInteractText"
                     },
-                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan"
+                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan",
+                    "interact_rec": true
                 }
             ],
             "zip": true,
@@ -1607,7 +1618,8 @@
                     "interact_text": {
                         "node": "AutoDeliverySubmitGoodsInteractText"
                     },
-                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan"
+                    "interact_scan": "AutoDeliverySubmitGoodsInteractScan",
+                    "interact_rec": true
                 }
             ],
             "heading_source": "camera"
